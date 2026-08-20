@@ -1,0 +1,11 @@
+{
+  "titre": "Lancement de la nouvelle plateforme ESSG",
+  "categorie": "Annonce",
+  "date": "2025-06-06",
+  "contenu": "Nous sommes ravis d'annoncer le lancement officiel de notre nouvelle plateforme web. Cette plateforme permettra aux membres de l'ESSG de rester informés des dernières actualités, événements et ressources disponibles.",
+  "auteur": "Jean Dupont",
+  "resume": "Découvrez la nouvelle plateforme web de l'ESSG, conçue pour améliorer la communication et l'accès à l'information pour tous les membres.",
+  "statut": true,
+  "image": "https://example.com/images/lancement-plateforme.jpg",
+  "enVedette": true
+}
