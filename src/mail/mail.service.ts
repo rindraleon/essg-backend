@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleInit , BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { AdmissionStatus } from '../admissions/entities/admission.entity';
@@ -16,6 +22,14 @@ import {
 } from './templates/message-receipt.template';
 import { renderMessageReplyTemplate } from './templates/message-reply.template';
 import { renderWelcomeTemplate } from './templates/welcome.template';
+import {
+  AdminAdmissionNotificationData,
+  renderAdminAdmissionNotificationTemplate,
+} from './templates/admin-admission-notification.template';
+import {
+  AdminContactNotificationData,
+  renderAdminContactNotificationTemplate,
+} from './templates/admin-contact-notification.template';
 import { htmlToText, isValidEmail, MAIL_ERROR, toMailHttpException } from './mail.errors';
 
 export interface SendEmailOptions {
@@ -33,6 +47,8 @@ export class MailService implements OnModuleInit {
   private readonly from: string;
   private readonly replyTo: string;
   private readonly appUrl: string;
+  private readonly backOfficeUrl: string;
+  private readonly adminNotifyEmails: string[];
   private readonly configured: boolean;
 
   constructor(private readonly configService: ConfigService) {
@@ -44,6 +60,15 @@ export class MailService implements OnModuleInit {
     this.from = this.readString('SMTP_FROM', user || 'no-reply@essg.mg');
     this.replyTo = this.readString('SMTP_REPLY_TO', this.from);
     this.appUrl = this.readString('APP_URL', 'http://localhost:3000');
+    this.backOfficeUrl = this.readString('BACK_OFFICE_URL', 'http://localhost:5000');
+    const rawAdminEmails = this.readString('ADMIN_NOTIFY_EMAILS', 'rindra.leon@gmail.com')
+      .split(',')
+      .map((email) => email.trim())
+      .filter(Boolean);
+    this.adminNotifyEmails = rawAdminEmails.filter(isValidEmail);
+    if (rawAdminEmails.length !== this.adminNotifyEmails.length) {
+      this.logger.warn('ADMIN_NOTIFY_EMAILS contient des adresses invalides — elles sont ignorées');
+    }
     this.configured = Boolean(host && user && pass && !user.startsWith('your-'));
 
     const explicitSecure = this.readBoolean('SMTP_SECURE', false);
@@ -71,7 +96,9 @@ export class MailService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     if (!this.configured) {
-      this.logger.warn('SMTP non configuré — les envois d’email échoueront jusqu’à correction du .env');
+      this.logger.warn(
+        'SMTP non configuré — les envois d’email échoueront jusqu’à correction du .env',
+      );
       return;
     }
     try {
@@ -97,14 +124,19 @@ export class MailService implements OnModuleInit {
     }
 
     try {
-      const info = await this.transporter.sendMail({
+      const info = (await this.transporter.sendMail({
         from: this.from,
         to,
         replyTo: options.replyTo || this.replyTo,
         subject: options.subject,
         html: options.html,
         text: options.text ?? htmlToText(options.html),
-      });
+      })) as {
+        messageId?: string;
+        accepted?: string[];
+        rejected?: string[];
+        response?: string;
+      };
 
       const accepted = Array.isArray(info.accepted) ? info.accepted.length : 0;
       if (accepted === 0) {
@@ -208,6 +240,30 @@ export class MailService implements OnModuleInit {
     });
   }
 
+  async sendAdminsContactNotification(
+    data: Omit<AdminContactNotificationData, 'backOfficeUrl'>,
+  ): Promise<void> {
+    await this.notifyAdmins({
+      subject: 'Nouveau message de contact — ESSG',
+      html: renderAdminContactNotificationTemplate({
+        ...data,
+        backOfficeUrl: this.backOfficeUrl,
+      }),
+    });
+  }
+
+  async sendAdminsAdmissionNotification(
+    data: Omit<AdminAdmissionNotificationData, 'backOfficeUrl'>,
+  ): Promise<void> {
+    await this.notifyAdmins({
+      subject: 'Nouvelle candidature reçue — ESSG',
+      html: renderAdminAdmissionNotificationTemplate({
+        ...data,
+        backOfficeUrl: this.backOfficeUrl,
+      }),
+    });
+  }
+
   async sendMessageReplyEmail(options: {
     to: string;
     prenom: string;
@@ -226,6 +282,41 @@ export class MailService implements OnModuleInit {
         siteUrl: this.appUrl,
       }),
     });
+  }
+
+  private async notifyAdmins(options: {
+    subject: string;
+    html: string;
+    text?: string;
+  }): Promise<void> {
+    if (this.adminNotifyEmails.length === 0) {
+      this.logger.warn(
+        'Aucun destinataire administrateur configuré (ADMIN_NOTIFY_EMAILS) — notification ignorée',
+      );
+      return;
+    }
+
+    let sent = 0;
+    for (const to of this.adminNotifyEmails) {
+      try {
+        await this.sendEmail({
+          to,
+          subject: options.subject,
+          html: options.html,
+          text: options.text,
+        });
+        sent += 1;
+      } catch (error) {
+        this.logger.error(
+          `Échec de la notification administrateur vers ${to}`,
+          error instanceof Error ? error.stack : error,
+        );
+      }
+    }
+
+    if (sent === 0) {
+      throw new ServiceUnavailableException(MAIL_ERROR.SEND_FAILED);
+    }
   }
 
   private readString(key: string, fallback: string): string {

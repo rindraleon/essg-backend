@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 import { IsEmail, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 export const EMAIL_MAX_LENGTH = 50;
-export const PHONE_MAX_LENGTH = 50;
+export const PHONE_MAX_LENGTH = 15;
 
 export function normalizeEmail(value: unknown): unknown {
   return typeof value === 'string' ? value.trim().toLowerCase() : value;

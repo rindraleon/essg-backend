@@ -49,6 +49,7 @@ import { UsersModule } from './users/users.module';
     MailModule,
     AdmissionsModule,
     ActivityLogsModule,
+    HealthModule
   ],
   controllers: [AppController],
   providers: [

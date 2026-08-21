@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { AdmissionFile } from './admission-file.entity';
 
 export enum AdmissionStatus {
   EN_ATTENTE = 'en_attente',
@@ -37,11 +38,34 @@ export class Admission {
   @Column()
   diplomePrecedent: string;
 
+  @Column({ type: 'text', nullable: true })
+  adresse: string | null;
+
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  numeroBaccalaureat: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  licenceEtablissement: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  licenceMention: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  licenceAnneeObtention: string | null;
+
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  numeroBordereau: string | null;
+
   @Column({ nullable: true })
   cvPath: string;
 
   @Column({ nullable: true })
   lettreMotivationPath: string;
+
+  @OneToMany(() => AdmissionFile, (file) => file.admission)
+  files!: AdmissionFile[];
 
   @Index()
   @Column({

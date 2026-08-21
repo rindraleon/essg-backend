@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus, Logger } from '@nestjs/common';
 import type { Response } from 'express';
+import { MulterError } from 'multer';
 import { QueryFailedError } from 'typeorm';
 
 @Catch()
@@ -25,6 +26,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   private resolveError(exception: unknown): { statusCode: number; message: string } {
+    if (exception instanceof MulterError) {
+      if (exception.code === 'LIMIT_FILE_SIZE') {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Fichier trop volumineux (10 Mo maximum).',
+        };
+      }
+      if (exception.code === 'LIMIT_UNEXPECTED_FILE') {
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Champ de fichier inattendu ou fichier en trop.',
+        };
+      }
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: 'Erreur lors du téléversement du fichier.',
+      };
+    }
+
     if (exception instanceof QueryFailedError) {
       const code = (exception.driverError as { code?: string } | undefined)?.code;
       if (code === '23505') {

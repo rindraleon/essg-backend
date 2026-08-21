@@ -20,7 +20,7 @@ export function renderWelcomeTemplate(data: WelcomeTemplateData): string {
     <div class="warning"><strong>&#9888;&#65039; Important :</strong> pour des raisons de sécurité, nous vous recommandons de changer votre mot de passe lors de votre première connexion.</div>
     <p>Cliquez sur le bouton ci-dessous pour accéder à la plateforme :</p>
     <p><a href="${data.siteUrl}" class="button">Accéder à ESSG</a></p>
-    <p>Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br><a href="${data.siteUrl}">${data.siteUrl}</a></p>
+    
   `;
 
   const templateData: BaseTemplateData = {

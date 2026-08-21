@@ -7,7 +7,7 @@ export const MAIL_ERROR = {
 } as const;
 
 export function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  return /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{1,63}$/.test(value.trim());
 }
 
 export function toMailHttpException(error: unknown): HttpException {
@@ -44,7 +44,7 @@ export function toMailHttpException(error: unknown): HttpException {
 export function htmlToText(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
+    .replace(/<[^>]{1,500}>/g, ' ')
     .replaceAll('&nbsp;', ' ')
     .replaceAll('&amp;', '&')
     .replaceAll('&lt;', '<')
@@ -59,5 +59,5 @@ export function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll('\'', '&#39;');
+    .replaceAll("'", '&#39;');
 }

@@ -27,8 +27,7 @@ const STATUS_META: Record<
     title: 'Confirmation de votre admission',
     badge: 'Acceptée',
     badgeClass: 'status-success',
-    message:
-      'Nous avons le plaisir de vous informer que votre admission a été validée.',
+    message: 'Nous avons le plaisir de vous informer que votre admission a été validée.',
   },
   [AdmissionStatus.REFUSE]: {
     title: 'Décision concernant votre candidature',
@@ -62,7 +61,7 @@ export function renderAdmissionStatusTemplate(data: AdmissionNotificationData): 
 
   const infoItems = [
     infoRow('Référence du dossier', data.reference),
-    infoRow('Candidat(e)', `${data.prenom} ${data.nom}`),
+    infoRow('Candidat(e)', ` ${data.prenom} ${data.nom}`),
     infoRow('Formation concernée', data.formation),
     infoRow('Statut', meta.badge),
     infoRow('Date de décision', data.date),
@@ -71,23 +70,26 @@ export function renderAdmissionStatusTemplate(data: AdmissionNotificationData): 
     infoRow('Lieu', data.reponseLieu),
   ].join('');
 
-  const complementary =
-    data.reponseInstructions || data.reponseMessage || data.commentaire
-      ? `
-        <p><strong>Informations complémentaires :</strong></p>
-        ${data.reponseInstructions ? `<p>${escapeHtml(data.reponseInstructions)}</p>` : ''}
-        ${
-          data.reponseMessage || data.commentaire
-            ? `<div class="info-box"><span class="info-label">Message</span><div class="message-block">${escapeHtml(
-                data.reponseMessage || data.commentaire || '',
-              )}</div></div>`
-            : ''
-        }
-      `
+  let complementary = '';
+  if (data.reponseInstructions || data.reponseMessage || data.commentaire) {
+    const instructions = data.reponseInstructions
+      ? `<p>${escapeHtml(data.reponseInstructions)}</p>`
       : '';
+    let messageBlock = '';
+    if (data.reponseMessage || data.commentaire) {
+      messageBlock = `<div class="info-box"><span class="info-label">Message</span><div class="message-block">${escapeHtml(
+        data.reponseMessage || data.commentaire || '',
+      )}</div></div>`;
+    }
+    complementary = `
+      <p><strong>Informations complémentaires :</strong></p>
+      ${instructions}
+      ${messageBlock}
+    `;
+  }
 
   const content = `
-    <p>Bonjour <strong>${escapeHtml(data.prenom)} ${escapeHtml(data.nom)}</strong>,</p>
+    <p>Bonjour <strong>  ${escapeHtml(data.nom)} ${escapeHtml(data.prenom)}</strong>,</p>
     <p>${meta.message}</p>
     <div class="info-box">
       ${infoItems}

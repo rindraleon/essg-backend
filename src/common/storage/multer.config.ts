@@ -21,6 +21,8 @@ export const ALLOWED_DOCUMENT_MIMES = [
   'image/png',
 ];
 
+export const ALLOWED_PROOF_MIMES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+
 export const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 export const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
 
@@ -43,5 +45,11 @@ export const imageUploadOptions = {
 export const documentUploadOptions = {
   storage: memoryStorage(),
   fileFilter: createMimeFilter(ALLOWED_DOCUMENT_MIMES),
+  limits: { fileSize: MAX_DOCUMENT_SIZE },
+};
+
+export const proofUploadOptions = {
+  storage: memoryStorage(),
+  fileFilter: createMimeFilter(ALLOWED_PROOF_MIMES),
   limits: { fileSize: MAX_DOCUMENT_SIZE },
 };

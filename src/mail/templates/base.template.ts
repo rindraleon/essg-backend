@@ -80,7 +80,6 @@ export function renderBaseTemplate(data: BaseTemplateData): string {
       <div class="footer">
         <p><strong>ESSG</strong> &mdash; École Supérieure de Sciences Géomatiques</p>
         <p>Université de Fianarantsoa &middot; Andrainjato, Madagascar</p>
-        <p>${siteUrl} &middot; contact@essg.mg</p>
         <p>&copy; ${new Date().getFullYear()} ESSG &mdash; Tous droits réservés</p>
         <p>Pour toute information complémentaire, répondez à cet email ou contactez le secrétariat.</p>
       </div>
