@@ -1,7 +1,13 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus, Logger } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { MulterError } from 'multer';
 import { QueryFailedError } from 'typeorm';
+import {
+  API_SIGNATURE,
+  API_SIGNATURE_HEADER,
+  API_VERSION,
+  API_VERSION_HEADER,
+} from '../constants/api.constants';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -10,6 +16,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     const { statusCode, message } = this.resolveError(exception);
 
@@ -18,10 +25,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof Error ? exception.stack : String(exception),
     );
 
+    response.setHeader(API_SIGNATURE_HEADER, API_SIGNATURE);
+    response.setHeader(API_VERSION_HEADER, API_VERSION);
     response.status(statusCode).json({
       statusCode,
       message,
       data: null,
+      signature: API_SIGNATURE,
+      timestamp: new Date().toISOString(),
+      path: request?.originalUrl ?? request?.url,
     });
   }
 

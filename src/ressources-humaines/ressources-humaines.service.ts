@@ -1,26 +1,22 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginatedData } from '../common/interfaces/api-response.interface';
 import { buildPaginatedData } from '../common/utils/pagination.util';
 import {
   CreateRessourceHumaineDto,
   UpdateRessourceHumaineDto,
- ExperienceProfessionnelleDto } from './dto/create-ressource-humaine.dto';
-import {
-  ExperienceProfessionnelle,
-  RessourceHumaine,
-} from './entities/ressource-humaine.entity';
-import { capitalize, toUpperCase } from '../common/utils/text.util';
+  ExperienceProfessionnelleDto,
+} from './dto/create-ressource-humaine.dto';
+import { QueryRessourceHumaineDto } from './dto/query-ressource-humaine.dto';
+import { ExperienceProfessionnelle, RessourceHumaine } from './entities/ressource-humaine.entity';
+import { capitalize, capitalizeWords, toUpperCase } from '../common/utils/text.util';
 import { buildUniqueSlug, shouldRegenerateSlug } from '../common/utils/slug.util';
-import {
-  assertEmailIsAvailable,
-  assertPhoneIsAvailable,
-} from '../common/utils/duplicate.util';
+import { assertEmailIsAvailable, assertPhoneIsAvailable } from '../common/utils/duplicate.util';
 import { EmailDomainService } from '../common/validators/email-domain.service';
 import { ILIKE_ESCAPE, buildIlikeTerm } from '../common/utils/search.util';
-
+import { CacheService } from '../infrastructure/cache/cache.service';
+import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
 
 function normalizeList(values?: string[]): string[] | undefined {
   if (!values) return undefined;
@@ -58,7 +54,62 @@ export class RessourcesHumainesService {
     @InjectRepository(RessourceHumaine)
     private readonly repo: Repository<RessourceHumaine>,
     private readonly emailDomainService: EmailDomainService,
+    private readonly cacheService: CacheService,
   ) {}
+
+  private invalidateCache(): void {
+    this.cacheService.invalidateResource(
+      CACHE_RESOURCE.ressourcesHumaines,
+      CACHE_RESOURCE.dashboard,
+    );
+  }
+
+  async findAll(paginationDto: QueryRessourceHumaineDto): Promise<PaginatedData<RessourceHumaine>> {
+    return this.cacheService.getOrSet(
+      this.cacheService.listKey(CACHE_RESOURCE.ressourcesHumaines, { ...paginationDto }),
+      () => this.findAllFromDatabase(paginationDto),
+      { ttl: CACHE_TTL.LONG },
+    );
+  }
+
+  async search(
+    query: string,
+    paginationDto: QueryRessourceHumaineDto,
+  ): Promise<PaginatedData<RessourceHumaine>> {
+    return this.cacheService.getOrSet(
+      this.cacheService.listKey(CACHE_RESOURCE.ressourcesHumaines, { ...paginationDto, q: query }),
+      () => this.searchFromDatabase(query, paginationDto),
+      { ttl: CACHE_TTL.SHORT },
+    );
+  }
+
+  async findOne(id: number): Promise<RessourceHumaine> {
+    return this.cacheService.getOrSet(
+      this.cacheService.itemKey(CACHE_RESOURCE.ressourcesHumaines, id),
+      () => this.findOneFromDatabase(id),
+      { ttl: CACHE_TTL.LONG },
+    );
+  }
+
+  async findBySlug(slug: string): Promise<RessourceHumaine> {
+    return this.cacheService.getOrSet(
+      this.cacheService.slugKey(CACHE_RESOURCE.ressourcesHumaines, slug),
+      () => this.findBySlugFromDatabase(slug),
+      { ttl: CACHE_TTL.LONG },
+    );
+  }
+
+  async findAllIncludingInactive(
+    paginationDto: QueryRessourceHumaineDto,
+  ): Promise<PaginatedData<RessourceHumaine>> {
+    return this.cacheService.getOrSet(
+      this.cacheService.viewKey(CACHE_RESOURCE.ressourcesHumaines, 'list-all', {
+        ...paginationDto,
+      }),
+      () => this.findAllIncludingInactiveFromDatabase(paginationDto),
+      { ttl: CACHE_TTL.LONG },
+    );
+  }
 
   private async assertEmailDomainExists(email?: string): Promise<void> {
     if (!email) return;
@@ -68,10 +119,9 @@ export class RessourcesHumainesService {
     }
   }
 
-
   private async findPaginated(
     where: Record<string, unknown> | Record<string, unknown>[],
-    paginationDto: PaginationDto,
+    paginationDto: QueryRessourceHumaineDto,
     defaultOrder: Record<string, 'ASC' | 'DESC'> = { ordre: 'DESC', id: 'DESC' },
   ): Promise<PaginatedData<RessourceHumaine>> {
     const { page = 1, limit = 10, sortBy, sortOrder = 'DESC' } = paginationDto;
@@ -87,21 +137,26 @@ export class RessourcesHumainesService {
     return buildPaginatedData(data, total, page, limit);
   }
 
-  async findAll(paginationDto: PaginationDto): Promise<PaginatedData<RessourceHumaine>> {
-    return this.findPaginated({ actif: true }, paginationDto);
+  private async findAllFromDatabase(
+    paginationDto: QueryRessourceHumaineDto,
+  ): Promise<PaginatedData<RessourceHumaine>> {
+    return this.findPaginated(
+      { actif: true, ...(paginationDto.poste ? { poste: paginationDto.poste } : {}) },
+      paginationDto,
+    );
   }
 
-  async findAllIncludingInactive(
-    paginationDto: PaginationDto,
+  private async findAllIncludingInactiveFromDatabase(
+    paginationDto: QueryRessourceHumaineDto,
   ): Promise<PaginatedData<RessourceHumaine>> {
     return this.findPaginated({}, paginationDto);
   }
 
-  async search(
+  private async searchFromDatabase(
     query: string,
-    paginationDto: PaginationDto,
+    paginationDto: QueryRessourceHumaineDto,
   ): Promise<PaginatedData<RessourceHumaine>> {
-    const { page = 1, limit = 10, sortBy, sortOrder = 'ASC' } = paginationDto;
+    const { page = 1, limit = 10, sortBy, sortOrder = 'DESC' } = paginationDto;
     const skip = (page - 1) * limit;
 
     if (!query) {
@@ -117,7 +172,10 @@ export class RessourcesHumainesService {
           OR ressource.poste ILIKE :search ${ILIKE_ESCAPE})`,
         { search: buildIlikeTerm(query) },
       )
-      .orderBy(sortBy ? `ressource.${sortBy}` : 'ressource.ordre', sortOrder)
+      .andWhere(paginationDto.poste ? 'ressource.poste = :poste' : '1=1', {
+        poste: paginationDto.poste,
+      })
+      .orderBy(sortBy ? `ressource.${sortBy}` : 'ressource.creeLe', sortOrder)
       .skip(skip)
       .take(limit)
       .getManyAndCount();
@@ -125,21 +183,19 @@ export class RessourcesHumainesService {
     return buildPaginatedData(data, total, page, limit);
   }
 
-  async findOne(id: number): Promise<RessourceHumaine> {
+  private async findOneFromDatabase(id: number): Promise<RessourceHumaine> {
     const item = await this.repo.findOne({ where: { id } });
     if (!item) throw new NotFoundException('Ressource humaine non trouvée');
     return item;
   }
 
-  async findBySlug(slug: string): Promise<RessourceHumaine> {
+  private async findBySlugFromDatabase(slug: string): Promise<RessourceHumaine> {
     const item = await this.repo.findOne({ where: { slug } });
     if (!item) throw new NotFoundException('Ressource humaine non trouvée');
     return item;
   }
 
   async create(dto: CreateRessourceHumaineDto): Promise<RessourceHumaine> {
-    // Email et téléphone identifient une personne : un doublon signale
-    // presque toujours une double saisie de la même fiche.
     await this.assertEmailDomainExists(dto.email);
     await assertEmailIsAvailable(this.repo, dto.email, 'une autre ressource humaine');
     await assertPhoneIsAvailable(this.repo, dto.telephone, 'une autre ressource humaine');
@@ -147,7 +203,7 @@ export class RessourcesHumainesService {
     const item = this.repo.create({
       ...dto,
       nom: toUpperCase(dto.nom),
-      prenom: capitalize(dto.prenom),
+      prenom: capitalizeWords(dto.prenom),
       poste: capitalize(dto.poste),
       description: dto.description ? capitalize(dto.description) : dto.description,
       slug: await buildUniqueSlug(this.repo, `${dto.nom} ${dto.prenom}`),
@@ -155,14 +211,15 @@ export class RessourcesHumainesService {
       ordre: dto.ordre ?? 0,
       photo: dto.photo || '',
       adresse: dto.adresse?.trim() || undefined,
-      // Parcours issu du CV : nettoyé avant persistance.
       experiences: normalizeExperiences(dto.experiences) ?? [],
       formations: normalizeList(dto.formations) ?? [],
       diplomes: normalizeList(dto.diplomes) ?? [],
       competences: normalizeList(dto.competences) ?? [],
       langues: normalizeList(dto.langues) ?? [],
     });
-    return this.repo.save(item);
+    const saved = await this.repo.save(item);
+    this.invalidateCache();
+    return saved;
   }
 
   async update(id: number, dto: UpdateRessourceHumaineDto): Promise<RessourceHumaine> {
@@ -180,7 +237,7 @@ export class RessourcesHumainesService {
       updateData.nom = toUpperCase(dto.nom);
     }
     if (dto.prenom) {
-      updateData.prenom = capitalize(dto.prenom);
+      updateData.prenom = capitalizeWords(dto.prenom);
     }
     if (dto.poste) {
       updateData.poste = capitalize(dto.poste);
@@ -199,11 +256,13 @@ export class RessourcesHumainesService {
       updateData.slug = await buildUniqueSlug(this.repo, nextFullName, { excludeId: id });
     }
     await this.repo.update(id, updateData);
+    this.invalidateCache();
     return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
     await this.findOne(id);
     await this.repo.delete(id);
+    this.invalidateCache();
   }
 }

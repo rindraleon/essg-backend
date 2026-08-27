@@ -169,12 +169,14 @@ export class MailService implements OnModuleInit {
     prenom: string,
     formation: string,
     reference: string,
+    details: Pick<AdmissionConfirmationData, 'niveau' | 'mention' | 'parcours' | 'bacCategorie'>,
   ): Promise<void> {
     const data: AdmissionConfirmationData = {
       nom,
       prenom,
       formation,
       reference,
+      ...details,
       date: new Date().toLocaleDateString('fr-FR'),
       siteUrl: this.appUrl,
     };

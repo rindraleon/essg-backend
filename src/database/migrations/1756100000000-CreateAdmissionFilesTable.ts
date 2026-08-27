@@ -72,7 +72,6 @@ export class CreateAdmissionFilesTable1756100000000 implements MigrationInterfac
       }),
     );
 
-    // Reprise des pièces déjà stockées dans les colonnes historiques.
     await queryRunner.query(`
       INSERT INTO admission_files ("admissionId", type, "originalName", "objectPath", mimetype, size, "creeLe")
       SELECT id, 'cv', 'CV', "cvPath", 'application/octet-stream', 0, "creeLe"

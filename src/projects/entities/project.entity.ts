@@ -1,5 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
+export interface ProjectSource {
+  title: string;
+  url: string;
+}
+
 @Entity('projects')
 export class Projet {
   @PrimaryGeneratedColumn()
@@ -34,6 +39,9 @@ export class Projet {
 
   @Column({ type: 'simple-json', default: '[]' })
   galerie!: string[];
+
+  @Column({ type: 'simple-json', default: '[]' })
+  sources!: ProjectSource[];
 
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   latitude?: number;

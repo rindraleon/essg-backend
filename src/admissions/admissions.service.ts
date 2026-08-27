@@ -14,16 +14,16 @@ import { ILIKE_ESCAPE, buildIlikeTerm, sanitizeSortField } from '../common/utils
 import { buildPaginatedData } from '../common/utils/pagination.util';
 import { detectFileType, withDetectedExtension } from '../common/utils/file-type.util';
 import { EmailDomainService } from '../common/validators/email-domain.service';
-import { MailService } from '../mail/mail.service';
+import { EmailNotificationService } from '../infrastructure/email/email-notification.service';
 import { SettingsService } from '../settings/settings.service';
-import { capitalize, toUpperCase } from '../common/utils/text.util';
+import { normalizeEmail, normalizePhoneNumber } from '../common/utils/contact.util';
+import { capitalize, capitalizeWords, toUpperCase } from '../common/utils/text.util';
+import { isAdmissionProgramEligible, resolveBacCategory } from './admission-rules.constant';
 import { CreateAdmissionDto } from './dto/create-admission.dto';
 import { QueryAdmissionDto } from './dto/query-admission.dto';
 import { UpdateAdmissionStatusDto } from './dto/update-admission-status.dto';
 import { Admission, AdmissionStatus } from './entities/admission.entity';
 import { AdmissionFile, AdmissionFileType } from './entities/admission-file.entity';
-
-export type AdmissionDocumentKind = 'cv' | 'lettre';
 
 export interface AdmissionDocumentFile {
   buffer: Buffer;
@@ -55,10 +55,19 @@ export const ADMISSION_FILE_LABELS: Record<AdmissionFileType, string> = {
   [AdmissionFileType.ATTESTATION_BAC]: 'Attestation de réussite au baccalauréat',
   [AdmissionFileType.RELEVE_L3]: 'Relevé de notes L3',
   [AdmissionFileType.BORDEREAU]: 'Bordereau de versement',
+  [AdmissionFileType.DEMANDE_INSCRIPTION]: "Demande d'inscription",
+  [AdmissionFileType.PHOTO_IDENTITE]: "Photo d'identité",
+  [AdmissionFileType.ACTE_ETAT_CIVIL]: "Acte d'état civil",
+  [AdmissionFileType.DIPLOME_BAC]: 'Diplôme du baccalauréat',
+  [AdmissionFileType.ATTESTATION_ETABLISSEMENT]: "Attestation de l'ancien établissement",
 };
 
 export const ADMISSIONS_CLOSED_MESSAGE =
   'Les inscriptions sont actuellement fermées. Merci de consulter régulièrement notre site pour connaître la prochaine période d’admission.';
+
+export function getCurrentAdmissionYear(): number {
+  return new Date().getFullYear();
+}
 
 const ADMISSION_SORT_FIELDS = [
   'id',
@@ -82,7 +91,7 @@ export class AdmissionsService {
     private readonly admissionsRepository: Repository<Admission>,
     @InjectRepository(AdmissionFile)
     private readonly filesRepository: Repository<AdmissionFile>,
-    private readonly mailService: MailService,
+    private readonly emailNotifications: EmailNotificationService,
     private readonly storageService: StorageService,
     private readonly emailDomainService: EmailDomainService,
     private readonly settingsService: SettingsService,
@@ -112,22 +121,8 @@ export class AdmissionsService {
     return trimmed || null;
   }
 
-  private async assertNoDuplicate(
-    numeroBaccalaureat?: string,
-    numeroBordereau?: string,
-    excludeId?: number,
-  ): Promise<void> {
-    const bac = this.normalizeOptional(numeroBaccalaureat);
+  private async assertNoDuplicate(numeroBordereau?: string, excludeId?: number): Promise<void> {
     const bordereau = this.normalizeOptional(numeroBordereau);
-
-    if (bac) {
-      const found = await this.admissionsRepository.findOne({
-        where: { numeroBaccalaureat: bac },
-      });
-      if (found && found.id !== excludeId) {
-        throw new ConflictException('Ce numéro d’inscription au baccalauréat est déjà utilisé.');
-      }
-    }
 
     if (bordereau) {
       const found = await this.admissionsRepository.findOne({
@@ -139,22 +134,22 @@ export class AdmissionsService {
     }
   }
 
-  async checkDuplicate(dto: { numeroBaccalaureat?: string; numeroBordereau?: string }): Promise<{
-    numeroBaccalaureatDisponible?: boolean;
+  async checkDuplicate(dto: {
+    numeroBordereau?: string;
+    email?: string;
+    telephone?: string;
+  }): Promise<{
     numeroBordereauDisponible?: boolean;
+    emailDisponible?: boolean;
+    telephoneDisponible?: boolean;
+    annee?: number;
   }> {
     const result: {
-      numeroBaccalaureatDisponible?: boolean;
       numeroBordereauDisponible?: boolean;
+      emailDisponible?: boolean;
+      telephoneDisponible?: boolean;
+      annee?: number;
     } = {};
-
-    const bac = this.normalizeOptional(dto.numeroBaccalaureat);
-    if (bac) {
-      const found = await this.admissionsRepository.findOne({
-        where: { numeroBaccalaureat: bac },
-      });
-      result.numeroBaccalaureatDisponible = !found;
-    }
 
     const bordereau = this.normalizeOptional(dto.numeroBordereau);
     if (bordereau) {
@@ -164,7 +159,86 @@ export class AdmissionsService {
       result.numeroBordereauDisponible = !found;
     }
 
+    const email = normalizeEmail(dto.email);
+    const telephone = normalizePhoneNumber(dto.telephone);
+    if (email || telephone) {
+      const annee = getCurrentAdmissionYear();
+      result.annee = annee;
+      if (email) {
+        const found = await this.admissionsRepository.findOne({
+          where: { annee, email },
+        });
+        result.emailDisponible = !found;
+      }
+      if (telephone) {
+        const found = await this.admissionsRepository.findOne({
+          where: { annee, telephone },
+        });
+        result.telephoneDisponible = !found;
+      }
+    }
+
     return result;
+  }
+
+  /**
+   * Bloque une nouvelle candidature si l'email OU le téléphone a déjà été
+   * utilisé pour une demande d'admission au cours de la même année.
+   * Les deux vérifications sont indépendantes.
+   */
+  private async assertNoAnnualDuplicate(
+    email: string,
+    telephone?: string,
+    annee = getCurrentAdmissionYear(),
+    excludeId?: number,
+  ): Promise<void> {
+    const normalizedEmail = normalizeEmail(email);
+    if (normalizedEmail) {
+      const found = await this.admissionsRepository.findOne({
+        where: { annee, email: normalizedEmail },
+        select: ['id'],
+      });
+      if (found && found.id !== excludeId) {
+        throw new ConflictException(
+          `Une demande d'admission avec l'adresse email « ${normalizedEmail} » a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
+        );
+      }
+    }
+
+    const normalizedTelephone = normalizePhoneNumber(telephone);
+    if (normalizedTelephone) {
+      const found = await this.admissionsRepository.findOne({
+        where: { annee, telephone: normalizedTelephone },
+        select: ['id'],
+      });
+      if (found && found.id !== excludeId) {
+        throw new ConflictException(
+          `Une demande d'admission avec le numéro de téléphone « ${normalizedTelephone} » a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
+        );
+      }
+    }
+  }
+
+  /** Convertit une violation de contrainte d'unicité annuelle en erreur explicite. */
+  private mapAnnualUniqueViolation(error: unknown, annee: number): void {
+    const pgError = error as {
+      code?: string;
+      constraint?: string;
+      driverError?: { code?: string };
+    };
+    const code = pgError?.code ?? pgError?.driverError?.code;
+    if (code !== '23505') return;
+    const constraint = pgError?.constraint ?? '';
+    if (constraint === 'UQ_admissions_annee_email') {
+      throw new ConflictException(
+        `Une demande d'admission avec cette adresse email a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
+      );
+    }
+    if (constraint === 'UQ_admissions_annee_telephone') {
+      throw new ConflictException(
+        `Une demande d'admission avec ce numéro de téléphone a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
+      );
+    }
   }
 
   private validateFile(file: AdmissionUploadedFile | undefined, type: AdmissionFileType): void {
@@ -182,67 +256,76 @@ export class AdmissionsService {
   }
 
   private validateRequiredFiles(
-    niveau: string,
+    dto: CreateAdmissionDto,
     files: Record<string, AdmissionUploadedFile>,
   ): void {
-    const level = niveau.trim().toLowerCase();
-
-    if (level === 'licence') {
-      const hasBacProof = Boolean(files.releve_bac) || Boolean(files.attestation_bac);
-      if (!hasBacProof) {
+    const common = [
+      AdmissionFileType.DEMANDE_INSCRIPTION,
+      AdmissionFileType.BORDEREAU,
+      AdmissionFileType.PHOTO_IDENTITE,
+      AdmissionFileType.ACTE_ETAT_CIVIL,
+    ];
+    for (const type of common) {
+      if (!files[type]) {
         throw new BadRequestException(
-          'Le relevé de notes du baccalauréat ou l’attestation de réussite au baccalauréat est obligatoire.',
+          `La pièce « ${ADMISSION_FILE_LABELS[type]} » est obligatoire.`,
         );
       }
     }
 
-    if (level === 'master') {
-      if (!files.releve_l3) {
-        throw new BadRequestException(
-          'Le relevé de notes L3 est obligatoire pour une candidature en Master.',
-        );
-      }
-    }
-
-    if (!files.bordereau) {
+    const currentYear = new Date().getFullYear();
+    const bacYear = Number(dto.bacAnneeObtention);
+    const bacProof =
+      bacYear === currentYear ? AdmissionFileType.RELEVE_BAC : AdmissionFileType.DIPLOME_BAC;
+    if (!files[bacProof]) {
       throw new BadRequestException(
-        'La pièce justificative du bordereau de versement est obligatoire.',
+        `La pièce « ${ADMISSION_FILE_LABELS[bacProof]} » est obligatoire.`,
+      );
+    }
+
+    if (dto.niveau.trim().toLowerCase() === 'master' && !files.attestation_etablissement) {
+      throw new BadRequestException(
+        `La pièce « ${ADMISSION_FILE_LABELS[AdmissionFileType.ATTESTATION_ETABLISSEMENT]} » est obligatoire.`,
       );
     }
   }
 
   private validateRequiredFields(niveau: string, dto: CreateAdmissionDto): void {
-    const level = niveau.trim().toLowerCase();
-
-    if (level === 'licence') {
-      if (!this.normalizeOptional(dto.adresse)) {
-        throw new BadRequestException(
-          'L’adresse complète est obligatoire pour une candidature en Licence.',
-        );
-      }
-      if (!this.normalizeOptional(dto.numeroBaccalaureat)) {
-        throw new BadRequestException(
-          'Le numéro d’inscription au baccalauréat est obligatoire pour une candidature en Licence.',
-        );
-      }
+    const required = [
+      dto.telephone,
+      dto.adresse,
+      dto.lieuNaissance,
+      dto.nationalite,
+      dto.numeroBaccalaureat,
+      dto.bacCentreExamen,
+    ];
+    if (required.some((value) => !this.normalizeOptional(value))) {
+      throw new BadRequestException(
+        'Toutes les informations personnelles et du baccalauréat sont obligatoires.',
+      );
     }
 
-    if (level === 'master') {
-      if (!this.normalizeOptional(dto.adresse)) {
-        throw new BadRequestException(
-          'L’adresse complète est obligatoire pour une candidature en Master.',
-        );
-      }
-      if (!this.normalizeOptional(dto.licenceEtablissement)) {
-        throw new BadRequestException('L’établissement d’obtention de la Licence est obligatoire.');
-      }
-      if (!this.normalizeOptional(dto.licenceMention)) {
-        throw new BadRequestException('La mention de la Licence est obligatoire.');
-      }
+    const detectedCategory = resolveBacCategory(dto.bacType, dto.bacSerie);
+    if (!detectedCategory || detectedCategory !== dto.bacCategorie) {
+      throw new BadRequestException(
+        'Le type, la série et la catégorie du baccalauréat sont incohérents.',
+      );
+    }
+    if (!isAdmissionProgramEligible(niveau, detectedCategory, dto.mention, dto.parcours)) {
+      throw new BadRequestException(
+        "La formation sélectionnée n'est pas compatible avec le profil du candidat.",
+      );
     }
 
-    if (!this.normalizeOptional(dto.numeroBordereau)) {
-      throw new BadRequestException('Le numéro de bordereau de versement est obligatoire.');
+    if (niveau.trim().toLowerCase() === 'master') {
+      if (
+        !this.normalizeOptional(dto.ancienEtablissement) ||
+        !this.normalizeOptional(dto.numeroMatricule)
+      ) {
+        throw new BadRequestException(
+          "L'ancien établissement et le numéro matricule sont obligatoires en Master.",
+        );
+      }
     }
   }
 
@@ -253,35 +336,60 @@ export class AdmissionsService {
     await this.assertAdmissionsOpen();
     await this.assertEmailDomainExists(createAdmissionDto.email);
     this.validateRequiredFields(createAdmissionDto.niveau, createAdmissionDto);
-    await this.assertNoDuplicate(
-      createAdmissionDto.numeroBaccalaureat,
-      createAdmissionDto.numeroBordereau,
+    await this.assertNoDuplicate(createAdmissionDto.numeroBordereau);
+
+    // Une seule candidature par candidat et par année (email et téléphone vérifiés indépendamment).
+    const annee = getCurrentAdmissionYear();
+    await this.assertNoAnnualDuplicate(
+      createAdmissionDto.email,
+      createAdmissionDto.telephone,
+      annee,
     );
 
     Object.entries(uploadedFiles).forEach(([key, file]) => {
       this.validateFile(file, key as AdmissionFileType);
     });
-    this.validateRequiredFiles(createAdmissionDto.niveau, uploadedFiles);
+    this.validateRequiredFiles(createAdmissionDto, uploadedFiles);
 
     const admission = this.admissionsRepository.create({
       ...createAdmissionDto,
       nom: toUpperCase(createAdmissionDto.nom),
-      prenom: capitalize(createAdmissionDto.prenom),
+      prenom: capitalizeWords(createAdmissionDto.prenom),
+      email: normalizeEmail(createAdmissionDto.email) ?? createAdmissionDto.email.trim(),
+      telephone: normalizePhoneNumber(createAdmissionDto.telephone),
+      annee,
       formation: capitalize(createAdmissionDto.formation),
       diplomePrecedent: capitalize(createAdmissionDto.diplomePrecedent),
       niveau: capitalize(createAdmissionDto.niveau),
-      adresse: createAdmissionDto.adresse ? capitalize(createAdmissionDto.adresse) : null,
+      lieuNaissance: capitalizeWords(createAdmissionDto.lieuNaissance),
+      nationalite: capitalizeWords(createAdmissionDto.nationalite),
+      adresse: capitalizeWords(createAdmissionDto.adresse),
+      bacCentreExamen: capitalizeWords(createAdmissionDto.bacCentreExamen),
+      ancienEtablissement: createAdmissionDto.ancienEtablissement
+        ? capitalizeWords(createAdmissionDto.ancienEtablissement)
+        : null,
       licenceEtablissement: createAdmissionDto.licenceEtablissement
-        ? capitalize(createAdmissionDto.licenceEtablissement)
+        ? capitalizeWords(createAdmissionDto.licenceEtablissement)
         : null,
       licenceMention: createAdmissionDto.licenceMention
-        ? capitalize(createAdmissionDto.licenceMention)
+        ? capitalizeWords(createAdmissionDto.licenceMention)
         : null,
-      numeroBaccalaureat: this.normalizeOptional(createAdmissionDto.numeroBaccalaureat),
+      numeroBaccalaureat: toUpperCase(createAdmissionDto.numeroBaccalaureat),
+      numeroMatricule: createAdmissionDto.numeroMatricule
+        ? toUpperCase(createAdmissionDto.numeroMatricule)
+        : null,
       numeroBordereau: this.normalizeOptional(createAdmissionDto.numeroBordereau),
       statut: AdmissionStatus.EN_ATTENTE,
     });
-    const saved = await this.admissionsRepository.save(admission);
+    let saved: Admission;
+    try {
+      saved = await this.admissionsRepository.save(admission);
+    } catch (error) {
+      // Filet de sécurité contre les soumissions simultanées (la contrainte
+      // d'unicité en base garantit l'intégrité même en cas de course).
+      this.mapAnnualUniqueViolation(error, annee);
+      throw error;
+    }
 
     const fileRows = Object.entries(uploadedFiles).map(([key, file]) => {
       return this.filesRepository.create({
@@ -297,40 +405,31 @@ export class AdmissionsService {
       await this.filesRepository.save(fileRows);
     }
 
-    try {
-      await this.mailService.sendAdmissionConfirmationEmail(
-        saved.email,
-        saved.nom,
-        saved.prenom,
-        saved.formation,
-        this.buildReference(saved.id),
-      );
-      this.logger.log(`Accusé de réception envoyé à ${saved.email}`);
-    } catch (error) {
-      this.logger.error(`Échec de l'envoi de l'accusé de réception à ${saved.email}`, error);
-    }
+    await this.emailNotifications.sendAdmissionConfirmation({
+      email: saved.email,
+      nom: saved.nom,
+      prenom: saved.prenom,
+      formation: saved.formation,
+      reference: this.buildReference(saved.id),
+      niveau: saved.niveau,
+      mention: saved.mention ?? createAdmissionDto.mention,
+      parcours: saved.parcours ?? createAdmissionDto.parcours,
+      bacCategorie: saved.bacCategorie ?? createAdmissionDto.bacCategorie,
+    });
 
-    try {
-      await this.mailService.sendAdminsAdmissionNotification({
-        nom: saved.nom,
-        prenom: saved.prenom,
-        email: saved.email,
-        telephone: saved.telephone ?? undefined,
-        niveau: saved.niveau,
-        formation: saved.formation,
-        numeroBaccalaureat: saved.numeroBaccalaureat ?? undefined,
-        numeroBordereau: saved.numeroBordereau ?? undefined,
-        reference: this.buildReference(saved.id),
-        date: new Date().toISOString(),
-        fileCount: fileRows.length,
-      });
-      this.logger.log('Notification administrateur envoyée pour la nouvelle admission');
-    } catch (error) {
-      this.logger.error(
-        `Échec de la notification administrateur pour l'admission ${saved.id}`,
-        error,
-      );
-    }
+    await this.emailNotifications.sendAdmissionAdminNotification({
+      nom: saved.nom,
+      prenom: saved.prenom,
+      email: saved.email,
+      telephone: saved.telephone ?? undefined,
+      niveau: saved.niveau,
+      formation: saved.formation,
+      numeroBaccalaureat: saved.numeroBaccalaureat ?? undefined,
+      numeroBordereau: saved.numeroBordereau ?? undefined,
+      reference: this.buildReference(saved.id),
+      date: new Date().toISOString(),
+      fileCount: fileRows.length,
+    });
 
     return this.findOne(saved.id);
   }
@@ -345,7 +444,9 @@ export class AdmissionsService {
       statut,
       niveau,
       formation,
+      annee,
       dateDebut,
+      dateFin,
     } = query;
 
     const qb = this.admissionsRepository.createQueryBuilder('admission');
@@ -378,8 +479,16 @@ export class AdmissionsService {
       });
     }
 
+    if (annee) {
+      qb.andWhere('admission.annee = :annee', { annee });
+    }
+
     if (dateDebut) {
       qb.andWhere('admission.creeLe >= :dateDebut', { dateDebut });
+    }
+
+    if (dateFin) {
+      qb.andWhere('admission.creeLe <= :dateFin', { dateFin: `${dateFin}T23:59:59.999Z` });
     }
 
     const orderField = sanitizeSortField(sortBy, ADMISSION_SORT_FIELDS) ?? 'creeLe';
@@ -522,7 +631,8 @@ export class AdmissionsService {
   }
 
   private async notifyStatusChange(admission: Admission): Promise<void> {
-    await this.mailService.sendAdmissionStatusEmail(admission.email, {
+    await this.emailNotifications.sendAdmissionStatus({
+      email: admission.email,
       nom: admission.nom,
       prenom: admission.prenom,
       formation: admission.formation,
@@ -536,7 +646,6 @@ export class AdmissionsService {
       reponseInstructions: admission.reponseInstructions || undefined,
       reponseMessage: admission.reponseMessage || undefined,
     });
-    this.logger.log(`Notification de statut envoyée à ${admission.email}`);
   }
 
   async remove(id: number): Promise<void> {

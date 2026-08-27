@@ -1,11 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsIn,
-  IsBoolean,
-  MinLength,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsOptional, IsIn, IsBoolean, MinLength, MaxLength } from 'class-validator';
 import { IsValidEmail } from '../../common/validators/contact.validators';
 
 export class CreateUtilisateurDto {
@@ -19,11 +12,11 @@ export class CreateUtilisateurDto {
 
   @IsString()
   @MaxLength(100)
-  prenom: string;
+  nom: string;
 
   @IsString()
   @MaxLength(100)
-  nom: string;
+  prenom: string;
 
   @IsIn(['admin', 'editeur', 'lecteur'])
   @IsOptional()

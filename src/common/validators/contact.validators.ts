@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 import { IsEmail, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 export const EMAIL_MAX_LENGTH = 50;
-export const PHONE_MAX_LENGTH = 15;
+export const PHONE_MAX_LENGTH = 25;
 
 export function normalizeEmail(value: unknown): unknown {
   return typeof value === 'string' ? value.trim().toLowerCase() : value;
@@ -59,7 +59,7 @@ export function IsValidPhoneOptional(): PropertyDecorator {
     }),
     IsOptional(),
     IsString(),
-    Matches(/^\+?[\d\s().-]{6,}$/, {
+    Matches(/^\+?[\d\s()+.-]{6,}$/, {
       message: 'Numéro de téléphone invalide (exemple : +261 34 00 000 00)',
     }),
     MaxLength(PHONE_MAX_LENGTH, {

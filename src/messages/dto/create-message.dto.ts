@@ -1,19 +1,16 @@
 import { IsString, IsOptional, IsBoolean, MaxLength, IsNotEmpty } from 'class-validator';
-import {
-  IsValidEmail,
-  IsValidPhoneOptional,
-} from '../../common/validators/contact.validators';
+import { IsValidEmail, IsValidPhoneOptional } from '../../common/validators/contact.validators';
 
 export class CreateMessageDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  prenom!: string;
+  nom!: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  nom!: string;
+  prenom!: string;
 
   @IsValidEmail()
   email!: string;

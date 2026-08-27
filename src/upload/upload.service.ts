@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ImageUploadService, StoredImage } from '../common/images/image-upload.service';
+import { resolvePresetFromPrefix } from '../common/images/image.constants';
 import {
   ALLOWED_DOCUMENT_MIMES,
   ALLOWED_IMAGE_MIMES,
@@ -7,7 +9,6 @@ import {
 } from '../common/storage/multer.config';
 import { normalizeStoragePrefix, STORAGE_PREFIXES } from '../common/storage/storage.constants';
 import { StorageService } from '../common/storage/storage.service';
-import type { StorageUploadResult } from '../common/storage/interfaces/storage.interface';
 import { PresignUploadDto } from './dto/presign-upload.dto';
 
 export interface UploadedImageResult {
@@ -18,19 +19,26 @@ export interface UploadedImageResult {
   fileName: string;
   mimeType: string;
   size: number;
+  originalSize: number;
+  width?: number;
+  height?: number;
+  savedPercent: number;
 }
 
 @Injectable()
 export class UploadService {
-  constructor(private readonly storageService: StorageService) {}
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly imageUploadService: ImageUploadService,
+  ) {}
 
   async uploadImage(file: Express.Multer.File, folder?: string): Promise<UploadedImageResult> {
     const prefix = normalizeStoragePrefix(folder || STORAGE_PREFIXES.images);
-    const result = await this.storageService.upload(file.buffer, file.originalname, {
-      mimetype: file.mimetype,
+    const stored = await this.imageUploadService.upload(file, {
       prefix,
+      preset: resolvePresetFromPrefix(prefix),
     });
-    return this.toUploadedResult(result);
+    return this.toUploadedResult(stored);
   }
 
   async presign(dto: PresignUploadDto) {
@@ -44,22 +52,28 @@ export class UploadService {
       throw new BadRequestException('Fichier trop volumineux');
     }
 
-    const prefix = normalizeStoragePrefix(dto.folder || (isImage ? STORAGE_PREFIXES.images : STORAGE_PREFIXES.documents));
+    const prefix = normalizeStoragePrefix(
+      dto.folder || (isImage ? STORAGE_PREFIXES.images : STORAGE_PREFIXES.documents),
+    );
     return this.storageService.createPresignedUpload(dto.fileName, {
       mimetype: dto.mimeType,
       prefix,
     });
   }
 
-  private toUploadedResult(result: StorageUploadResult): UploadedImageResult {
+  private toUploadedResult(stored: StoredImage): UploadedImageResult {
     return {
-      url: result.url,
-      filename: result.objectName,
-      objectKey: result.objectKey,
-      bucket: result.bucket,
-      fileName: result.fileName,
-      mimeType: result.mimeType,
-      size: result.size,
+      url: stored.url,
+      filename: stored.filename,
+      objectKey: stored.objectKey,
+      bucket: stored.bucket,
+      fileName: stored.fileName,
+      mimeType: stored.mimeType,
+      size: stored.size,
+      originalSize: stored.originalSize,
+      width: stored.width,
+      height: stored.height,
+      savedPercent: stored.savedPercent,
     };
   }
 }

@@ -1,3 +1,4 @@
+import { escapeHtml } from '../mail.errors';
 import { renderBaseTemplate, BaseTemplateData } from './base.template';
 
 export interface MessageReceiptTemplateData {
@@ -8,19 +9,25 @@ export interface MessageReceiptTemplateData {
 }
 
 export function renderMessageReceiptTemplate(data: MessageReceiptTemplateData): string {
+  const nom = escapeHtml(data.nom);
+  const prenom = escapeHtml(data.prenom);
+  const sujet = escapeHtml(data.sujet);
+
   const content = `
-    <p>Bonjour <strong>${data.nom} ${data.prenom}</strong>,</p>
-    <p>Nous avons bien reçu votre message concernant : <strong>${data.sujet}</strong>.</p>
-    <p>Notre équipe vous répondra dans les plus brefs délais.</p>
-    <p>Cordialement,<br>L’équipe ESSG</p>
-    ${data.siteUrl ? `<p><a href="${data.siteUrl}" class="button">Visiter notre site</a></p>` : ''}
+    <p>Bonjour <strong>${nom} ${prenom}</strong>,</p>
+    <p>Nous accusons bonne réception de votre message intitulé «&nbsp;<strong>${sujet}</strong>&nbsp;» et nous vous remercions de nous avoir contactés.</p>
+    <p>Votre demande a été transmise au service concerné. Notre équipe mettra tout en œuvre pour vous répondre dans les meilleurs délais.</p>
+    <p>Pour toute information complémentaire, notre secrétariat reste à votre entière disposition.</p>
+    ${data.siteUrl ? `<p style="text-align:center;margin:22px 0;"><a href="${data.siteUrl}" class="button">Visiter notre site &rarr;</a></p>` : ''}
+    <p>Nous vous remercions de l’intérêt que vous portez à notre établissement.</p>
+    <p class="signature">Cordialement,<br><span class="sign-name">L’équipe ESSG</span><br>École Supérieure de Sciences Géomatiques<br>Université de Fianarantsoa</p>
   `;
 
   const templateData: BaseTemplateData = {
     title: 'Accusé de réception',
     subtitle: 'Nous avons bien reçu votre message',
     content,
-    preheader: 'Accusé de réception de votre message',
+    preheader: `Accusé de réception de votre message « ${data.sujet} »`,
     siteUrl: data.siteUrl,
   };
 

@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { PaginatedData } from '../common/interfaces/api-response.interface';
 import { buildPaginatedData } from '../common/utils/pagination.util';
 import { ILIKE_ESCAPE, buildIlikeTerm, sanitizeSortField } from '../common/utils/search.util';
-import { MailService } from '../mail/mail.service';
+import { EmailNotificationService } from '../infrastructure/email/email-notification.service';
 import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { CreateMessageDto, UpdateMessageDto } from './dto/create-message.dto';
 import { QueryMessageDto } from './dto/query-message.dto';
@@ -13,7 +13,16 @@ import { Message } from './entities/message.entity';
 import { capitalize, toUpperCase } from '../common/utils/text.util';
 import { EmailDomainService } from '../common/validators/email-domain.service';
 
-const MESSAGE_SORT_FIELDS = ['id', 'nom', 'prenom', 'email', 'sujet', 'lu', 'creeLe', 'misAJourLe'] as const;
+const MESSAGE_SORT_FIELDS = [
+  'id',
+  'nom',
+  'prenom',
+  'email',
+  'sujet',
+  'lu',
+  'creeLe',
+  'misAJourLe',
+] as const;
 
 @Injectable()
 export class MessagesService {
@@ -22,7 +31,7 @@ export class MessagesService {
   constructor(
     @InjectRepository(Message)
     private readonly repo: Repository<Message>,
-    private readonly mailService: MailService,
+    private readonly emailNotifications: EmailNotificationService,
     private readonly emailDomainService: EmailDomainService,
   ) {}
 
@@ -33,7 +42,6 @@ export class MessagesService {
       throw new BadRequestException(result.reason);
     }
   }
-
 
   private async findFiltered(queryDto: QueryMessageDto = {}): Promise<PaginatedData<Message>> {
     const {
@@ -112,16 +120,28 @@ export class MessagesService {
     });
     const saved = await this.repo.save(item);
 
-    try {
-      await this.mailService.sendMessageReceiptEmail(saved.email, {
-        nom: saved.nom,
-        prenom: saved.prenom,
-        sujet: saved.sujet,
-      });
-      this.logger.log(`Accusé de réception envoyé à ${saved.email}`);
-    } catch (error) {
-      this.logger.error(`Échec de l'envoi de l'accusé de réception à ${saved.email}`, error);
-    }
+    await this.emailNotifications.sendContactReceipt({
+      email: saved.email,
+      nom: saved.nom,
+      prenom: saved.prenom,
+      sujet: saved.sujet,
+    });
+
+    await this.emailNotifications.sendContactAdminNotification({
+      nom: saved.nom,
+      prenom: saved.prenom,
+      email: saved.email,
+      telephone: saved.telephone ?? undefined,
+      sujet: saved.sujet,
+      message: saved.message,
+      date: new Date().toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    });
 
     return saved;
   }
@@ -142,7 +162,7 @@ export class MessagesService {
     const item = await this.findOne(id);
     const sujet = dto.sujet?.trim() || `Re : ${item.sujet}`;
 
-    await this.mailService.sendMessageReplyEmail({
+    await this.emailNotifications.sendContactReply({
       to: item.email,
       prenom: item.prenom,
       nom: item.nom,

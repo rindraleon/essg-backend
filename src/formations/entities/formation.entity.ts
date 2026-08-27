@@ -9,99 +9,75 @@ import {
 @Entity('formations')
 export class Formation {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column({ unique: true })
-  slug: string;
+  slug!: string;
 
-  // NOTE: le hook @BeforeInsert/@BeforeUpdate a été retiré : il faisait
-  // doublon avec FormationsService et ne garantissait pas l'unicité du slug.
-  // La génération est centralisée dans common/utils/slug.util.ts.
-
-  /**
-   * Mention / domaine pédagogique (niveau 1 de la hiérarchie ESSG).
-   * Référentiel : formations/formation-mentions.constant.ts
-   */
   @Column({ type: 'varchar', length: 150, nullable: true })
-  mention: string;
+  mention!: string;
 
-  /**
-   * @deprecated Conservé pour compatibilité ascendante ; la source de vérité
-   * est désormais `mention`. Alimenté automatiquement avec [mention].
-   */
   @Column({ type: 'simple-json', default: '[]' })
-  domaine: string[];
+  domaine!: string[];
 
-  /** Titre de formation (niveau 2), rattaché à `mention`. */
   @Column()
-  titre: string;
+  titre!: string;
 
   @Column({ type: 'text', default: 'Licence' })
-  niveau: 'Licence' | 'Master' | 'Doctorat';
+  niveau!: 'Licence' | 'Master' | 'Doctorat';
 
   @Column()
-  duree: string;
+  duree!: string;
 
   @Column({ type: 'text' })
-  description: string;
+  description!: string;
 
   @Column({ type: 'simple-json', default: '[]' })
-  objectifs: string[];
+  objectifs!: string[];
 
   @Column({ type: 'simple-json', default: '[]' })
-  debouches: string[];
+  debouches!: string[];
 
-  /**
-   * @deprecated Fusionné dans `conditions`. La colonne est conservée pour ne
-   * pas perdre l'historique, mais n'est plus alimentée par le back-office.
-   */
   @Column({ type: 'text', nullable: true })
-  conditionsAcces: string;
-
-  /** Conditions et prérequis d'accès — source de vérité unique. */
-  @Column({ type: 'simple-json', default: '[]' })
-  conditions: string[];
+  conditionsAcces!: string;
 
   @Column({ type: 'simple-json', default: '[]' })
-  competences: string[];
+  conditions!: string[];
 
-  /**
-   * @deprecated Redondant avec `programme`. Conservé en lecture seule pour
-   * les données historiques structurées ({ semestre, cours }).
-   */
   @Column({ type: 'simple-json', default: '[]' })
-  modules: any[];
+  competences!: string[];
+
+  @Column({ type: 'simple-json', default: '[]' })
+  modules!: any[];
 
   @Column({ type: 'int', default: 180 })
-  credits: number;
+  credits!: number;
 
-  /** Nom affiché du responsable (dénormalisé pour l'affichage public). */
   @Column({ nullable: true })
-  responsable: string;
+  responsable!: string;
 
-  /** Lien vers la ressource humaine responsable de la formation. */
   @Column({ type: 'int', nullable: true })
-  responsableId: number | null;
+  responsableId!: number | null;
 
   @Column({ nullable: true })
-  email: string;
+  email!: string;
 
   @Column({ type: 'simple-json', default: '[]' })
-  programme: string[];
+  programme!: string[];
 
   @Column({ default: '/images/hero-campus.jpg' })
-  image: string;
+  image!: string;
 
   @Column({ type: 'boolean', default: false })
-  enVedette: boolean;
+  enVedette!: boolean;
 
   @CreateDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
-  creeLe: Date;
+  creeLe!: Date;
 
   @UpdateDateColumn({
     type: 'timestamptz',
     default: () => 'CURRENT_TIMESTAMP',
     onUpdate: 'CURRENT_TIMESTAMP',
   })
-  misAJourLe: Date;
+  misAJourLe!: Date;
 }

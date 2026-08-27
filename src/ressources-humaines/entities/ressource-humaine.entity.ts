@@ -1,6 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-/** Une ligne d'expérience professionnelle du parcours. */
 export interface ExperienceProfessionnelle {
   poste: string;
   organisation?: string;

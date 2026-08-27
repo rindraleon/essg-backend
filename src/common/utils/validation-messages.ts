@@ -58,19 +58,19 @@ function translateConstraint(property: string, message: string): string {
     return `Le champ « ${label} » doit être l'une des valeurs suivantes : ${values}.`;
   }
   if (message.includes('must be longer than or equal to')) {
-    const match = message.match(/equal to (\d+)/);
+    const match = /equal to (\d+)/.exec(message);
     return `Le champ « ${label} » doit contenir au moins ${match?.[1] ?? ''} caractères.`;
   }
   if (message.includes('must be shorter than or equal to')) {
-    const match = message.match(/equal to (\d+)/);
+    const match = /equal to (\d+)/.exec(message);
     return `Le champ « ${label} » ne peut pas dépasser ${match?.[1] ?? ''} caractères.`;
   }
   if (message.includes('must not be greater than')) {
-    const match = message.match(/greater than (\d+)/);
+    const match = /greater than (\d+)/.exec(message);
     return `Le champ « ${label} » ne peut pas dépasser ${match?.[1] ?? ''}.`;
   }
   if (message.includes('must not be less than')) {
-    const match = message.match(/less than (\d+)/);
+    const match = /less than (\d+)/.exec(message);
     return `Le champ « ${label} » doit être supérieur ou égal à ${match?.[1] ?? ''}.`;
   }
   if (message.includes('must be a valid ISO 8601 date')) {

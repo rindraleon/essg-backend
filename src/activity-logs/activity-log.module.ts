@@ -8,7 +8,6 @@ import { ActivityLogService } from './activity-log.service';
 import { ActivityLog } from './entities/activity-log.entity';
 import { ActivityLogInterceptor } from 'src/common/interceptors/activity-log.interceptor';
 
-
 @Module({
   imports: [TypeOrmModule.forFeature([ActivityLog])],
   controllers: [ActivityLogController],

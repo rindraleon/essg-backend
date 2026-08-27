@@ -21,33 +21,43 @@ export interface AdmissionNotificationData {
 
 const STATUS_META: Record<
   AdmissionStatus,
-  { title: string; badge: string; badgeClass: string; message: string }
+  { title: string; badge: string; badgeClass: string; message: string; closing: string }
 > = {
   [AdmissionStatus.ACCEPTE]: {
     title: 'Confirmation de votre admission',
     badge: 'Acceptée',
     badgeClass: 'status-success',
-    message: 'Nous avons le plaisir de vous informer que votre admission a été validée.',
+    message:
+      'À la suite de l’examen de votre dossier par notre commission pédagogique, nous avons le plaisir de vous informer que votre candidature a été <strong>acceptée</strong> pour la formation demandée. Nous vous adressons toutes nos félicitations.',
+    closing:
+      'Nous nous réjouissons de vous accueillir au sein de notre établissement et vous souhaitons une excellente année universitaire.',
   },
   [AdmissionStatus.REFUSE]: {
     title: 'Décision concernant votre candidature',
     badge: 'Refusée',
     badgeClass: 'status-error',
     message:
-      'Après étude de votre dossier, nous regrettons de vous informer que votre candidature n’a pas été retenue pour cette formation.',
+      'À la suite de l’examen attentif de votre dossier par notre commission pédagogique, nous regrettons de vous informer que votre candidature n’a pas pu être retenue pour la formation demandée.',
+    closing:
+      'Cette décision ne remet pas en cause la qualité de votre parcours. Nous vous encourageons à poursuivre vos démarches et vous souhaitons une pleine réussite dans vos projets.',
   },
   [AdmissionStatus.EN_COURS_ETUDE]: {
-    title: 'Dossier en cours d’étude',
+    title: 'Votre dossier est en cours d’étude',
     badge: 'En cours d’étude',
     badgeClass: 'status-info',
     message:
-      'Votre dossier de candidature est actuellement en cours d’étude par notre commission pédagogique.',
+      'Nous vous informons que votre dossier de candidature est actuellement en cours d’examen par notre commission pédagogique. Chaque dossier étant étudié avec la plus grande attention, cette étape peut nécessiter un certain délai.',
+    closing:
+      'Nous vous remercions par avance de votre patience et ne manquerons pas de vous informer dès qu’une décision aura été rendue.',
   },
   [AdmissionStatus.EN_ATTENTE]: {
-    title: 'Dossier en attente',
+    title: 'Votre dossier est en attente',
     badge: 'En attente',
     badgeClass: 'status-warning',
-    message: 'Votre dossier de candidature a bien été enregistré et est en attente de traitement.',
+    message:
+      'Nous vous informons que votre dossier de candidature a bien été enregistré et qu’il est actuellement en attente de traitement par nos services.',
+    closing:
+      'Vous serez informé(e) par email dès que votre dossier aura été examiné. Nous vous remercions de votre patience.',
   },
 };
 
@@ -58,12 +68,14 @@ function infoRow(label: string, value?: string): string {
 
 export function renderAdmissionStatusTemplate(data: AdmissionNotificationData): string {
   const meta = STATUS_META[data.statut];
+  const nom = escapeHtml(data.nom);
+  const prenom = escapeHtml(data.prenom);
 
   const infoItems = [
     infoRow('Référence du dossier', data.reference),
-    infoRow('Candidat(e)', ` ${data.prenom} ${data.nom}`),
+    infoRow('Candidat(e)', `${nom} ${prenom}`),
     infoRow('Formation concernée', data.formation),
-    infoRow('Statut', meta.badge),
+    infoRow('Statut du dossier', meta.badge),
     infoRow('Date de décision', data.date),
     infoRow('Date', data.reponseDate),
     infoRow('Heure', data.reponseHeure),
@@ -77,9 +89,9 @@ export function renderAdmissionStatusTemplate(data: AdmissionNotificationData): 
       : '';
     let messageBlock = '';
     if (data.reponseMessage || data.commentaire) {
-      messageBlock = `<div class="info-box"><span class="info-label">Message</span><div class="message-block">${escapeHtml(
+      messageBlock = `<div class="message-block">${escapeHtml(
         data.reponseMessage || data.commentaire || '',
-      )}</div></div>`;
+      )}</div>`;
     }
     complementary = `
       <p><strong>Informations complémentaires :</strong></p>
@@ -89,15 +101,15 @@ export function renderAdmissionStatusTemplate(data: AdmissionNotificationData): 
   }
 
   const content = `
-    <p>Bonjour <strong>  ${escapeHtml(data.nom)} ${escapeHtml(data.prenom)}</strong>,</p>
+    <p>Bonjour <strong>${nom} ${prenom}</strong>,</p>
     <p>${meta.message}</p>
-    <div class="info-box">
-      ${infoItems}
-    </div>
+    <p class="recap-title">Situation de votre dossier</p>
+    <div class="info-box">${infoItems}</div>
     <p><span class="status ${meta.badgeClass}">${meta.badge}</span></p>
     ${complementary}
-    <p>Nous restons à votre disposition pour toute information complémentaire.</p>
-    <p>Cordialement,<br>L’équipe ESSG<br>École Supérieure de Sciences Géomatiques</p>
+    <p>${meta.closing}</p>
+    <p>Pour toute question relative à votre dossier, notre équipe reste à votre entière disposition.</p>
+    <p class="signature">Cordialement,<br><span class="sign-name">L’équipe ESSG</span><br>École Supérieure de Sciences Géomatiques<br>Université de Fianarantsoa</p>
   `;
 
   const templateData: BaseTemplateData = {

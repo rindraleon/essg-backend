@@ -2,11 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { promises as dns } from 'node:dns';
 
-export type EmailDomainStatus =
-  | 'valid'
-  | 'no_mx'
-  | 'disposable'
-  | 'unreachable';
+export type EmailDomainStatus = 'valid' | 'no_mx' | 'disposable' | 'unreachable';
 
 export interface EmailDomainResult {
   status: EmailDomainStatus;
@@ -87,7 +83,6 @@ export class EmailDomainService {
       if (code === 'ENOTFOUND' || code === 'NXDOMAIN') {
         return 'no_mx';
       }
-      // ENODATA : le domaine existe mais n'a pas de MX → on tente A/AAAA.
       if (code !== 'ENODATA') {
         this.logger.warn(`Résolution MX impossible pour « ${domain} » : ${code ?? 'inconnu'}`);
         return 'unreachable';
@@ -113,7 +108,6 @@ export class EmailDomainService {
       return { status: 'no_mx', domain: '', reason: 'Adresse email invalide.' };
     }
 
-    // Domaine de confiance : accepté sans interroger le DNS.
     if (this.trustedDomains.has(domain)) {
       return { status: 'valid', domain, reason: null };
     }
@@ -123,7 +117,7 @@ export class EmailDomainService {
         status: 'disposable',
         domain,
         reason:
-          "Les adresses email temporaires ne sont pas acceptées. Utilisez une adresse permanente.",
+          'Les adresses email temporaires ne sont pas acceptées. Utilisez une adresse permanente.',
       };
     }
 
@@ -134,7 +128,6 @@ export class EmailDomainService {
 
     const status = await this.resolveDomain(domain);
 
-    // Un échec réseau n'est pas mis en cache : le domaine peut être valide.
     if (status !== 'unreachable') {
       this.cache.set(domain, { status, expiresAt: Date.now() + CACHE_TTL_MS });
     }
@@ -142,13 +135,12 @@ export class EmailDomainService {
     return { status, domain, reason: this.reasonFor(status, domain) };
   }
 
-  /** Message utilisateur associé à un statut. */
   private reasonFor(status: EmailDomainStatus, domain: string): string | null {
     switch (status) {
       case 'no_mx':
         return `Le domaine « ${domain} » ne peut pas recevoir d'emails. Vérifiez l'orthographe de l'adresse.`;
       case 'disposable':
-        return "Les adresses email temporaires ne sont pas acceptées. Utilisez une adresse permanente.";
+        return 'Les adresses email temporaires ne sont pas acceptées. Utilisez une adresse permanente.';
       default:
         return null;
     }

@@ -4,12 +4,12 @@ import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { PaginatedData } from '../common/interfaces/api-response.interface';
 import { buildPaginatedData } from '../common/utils/pagination.util';
-import { MailService } from '../mail/mail.service';
+import { EmailNotificationService } from '../infrastructure/email/email-notification.service';
 import { CreateUtilisateurDto } from './dto/create-user.dto';
 import { UpdateUtilisateurDto } from './dto/update-user.dto';
 import { Utilisateur } from './entities/user.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { capitalize, toUpperCase } from '../common/utils/text.util';
+import { capitalize, capitalizeWords, toUpperCase } from '../common/utils/text.util';
 import { assertEmailIsAvailable } from '../common/utils/duplicate.util';
 import { EmailDomainService } from '../common/validators/email-domain.service';
 
@@ -22,7 +22,7 @@ export class UsersService {
   constructor(
     @InjectRepository(Utilisateur)
     private readonly repo: Repository<Utilisateur>,
-    private readonly mailService: MailService,
+    private readonly emailNotifications: EmailNotificationService,
     private readonly emailDomainService: EmailDomainService,
   ) {}
 
@@ -35,20 +35,21 @@ export class UsersService {
   }
 
   private sanitizeUser(user: Utilisateur): SanitizedUtilisateur {
-    const { motDePasse: _motDePasse, ...rest } = user;
-    return rest;
+    const sanitized = { ...user } as Partial<Utilisateur>;
+    delete sanitized.motDePasse;
+    return sanitized as SanitizedUtilisateur;
   }
 
   private async findPaginated(
     where: FindOptionsWhere<Utilisateur> | FindOptionsWhere<Utilisateur>[],
     paginationDto: PaginationDto,
   ): Promise<PaginatedData<SanitizedUtilisateur>> {
-    const { page = 1, limit = 10, sortBy, sortOrder = 'ASC' } = paginationDto;
+    const { page = 1, limit = 10, sortBy, sortOrder = 'DESC' } = paginationDto;
     const skip = (page - 1) * limit;
 
     const [users, total] = await this.repo.findAndCount({
       where,
-      order: sortBy ? { [sortBy]: sortOrder } : { id: 'ASC' },
+      order: sortBy ? { [sortBy]: sortOrder } : { creeLe: 'DESC' },
       skip,
       take: limit,
     });
@@ -97,17 +98,17 @@ export class UsersService {
     const user = this.repo.create({
       ...dto,
       nom: toUpperCase(dto.nom),
-      prenom: capitalize(dto.prenom),
+      prenom: capitalizeWords(dto.prenom),
       motDePasse: hashedPassword,
     });
     const saved = await this.repo.save(user);
 
-    try {
-      await this.mailService.sendWelcomeEmail(saved.email, saved.nom, saved.prenom, dto.motDePasse);
-      this.logger.log(`Email de bienvenue envoyé à ${saved.email}`);
-    } catch (error) {
-      this.logger.error(`Échec de l'envoi de l'email de bienvenue à ${saved.email}`, error);
-    }
+    await this.emailNotifications.sendUserWelcome({
+      email: saved.email,
+      nom: saved.nom,
+      prenom: saved.prenom,
+      motDePasse: dto.motDePasse,
+    });
 
     return this.sanitizeUser(saved);
   }
@@ -127,7 +128,7 @@ export class UsersService {
       data.nom = toUpperCase(dto.nom);
     }
     if (dto.prenom) {
-      data.prenom = capitalize(dto.prenom);
+      data.prenom = capitalizeWords(dto.prenom);
     }
     await this.repo.update(id, data);
     return this.findOne(user.id);

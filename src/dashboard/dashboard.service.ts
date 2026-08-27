@@ -8,6 +8,8 @@ import { Projet } from '../projects/entities/project.entity';
 import { Partenaire } from '../parteners/entities/partner.entity';
 import { RessourceHumaine } from '../ressources-humaines/entities/ressource-humaine.entity';
 import { Admission } from '../admissions/entities/admission.entity';
+import { CacheService } from '../infrastructure/cache/cache.service';
+import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
 
 export interface DashboardStats {
   totalUsers: number;
@@ -49,9 +51,40 @@ export class DashboardService {
     private readonly admissionRepository: Repository<Admission>,
     @InjectRepository(RessourceHumaine)
     private readonly resourceRepository: Repository<RessourceHumaine>,
+    private readonly cacheService: CacheService,
   ) {}
 
   async getStats(): Promise<DashboardStats> {
+    return this.cacheService.getOrSet(
+      this.cacheService.viewKey(CACHE_RESOURCE.dashboard, 'stats'),
+      () => this.computeStats(),
+      { ttl: CACHE_TTL.SHORT, stampedeProtection: true },
+    );
+  }
+
+  async getRecentActivities(): Promise<Activity[]> {
+    return this.cacheService.getOrSet(
+      this.cacheService.viewKey(CACHE_RESOURCE.dashboard, 'recent-activities'),
+      () => this.computeRecentActivities(),
+      { ttl: CACHE_TTL.SHORT },
+    );
+  }
+
+  async getOverview(): Promise<Overview> {
+    return this.cacheService.getOrSet(
+      this.cacheService.viewKey(CACHE_RESOURCE.dashboard, 'overview'),
+      async () => {
+        const [stats, recentActivities] = await Promise.all([
+          this.getStats(),
+          this.getRecentActivities(),
+        ]);
+        return { stats, recentActivities };
+      },
+      { ttl: CACHE_TTL.SHORT },
+    );
+  }
+
+  private async computeStats(): Promise<DashboardStats> {
     const [
       totalUsers,
       totalFormations,
@@ -81,7 +114,7 @@ export class DashboardService {
     };
   }
 
-  async getRecentActivities(): Promise<Activity[]> {
+  private async computeRecentActivities(): Promise<Activity[]> {
     const recentUsers = await this.userRepository
       .createQueryBuilder('user')
       .select(['user.id', 'user.nom', 'user.prenom', 'user.creeLe'])
@@ -119,18 +152,6 @@ export class DashboardService {
     });
 
     return activities.toSorted((a, b) => b.id - a.id).slice(0, 10);
-  }
-
-  async getOverview(): Promise<Overview> {
-    const [stats, recentActivities] = await Promise.all([
-      this.getStats(),
-      this.getRecentActivities(),
-    ]);
-
-    return {
-      stats,
-      recentActivities,
-    };
   }
 
   private formatTime(date: Date): string {

@@ -8,8 +8,6 @@ export interface DescribeActivityParams {
   metadata: Record<string, unknown> | null;
 }
 
-export type ActivityAction = string;
-
 const ENTITY_TYPE: Record<string, string> = {
   users: 'User',
   admissions: 'Admission',
@@ -78,7 +76,7 @@ const DESCRIPTION_TEMPLATES: Record<string, Record<string, string>> = {
 
 @Injectable()
 export class ActivityLogDescriptionService {
-  resolveAction(method: string, segments: string[]): ActivityAction {
+  resolveAction(method: string, segments: string[]): string {
     const last = segments[segments.length - 1];
     if (last === 'status') {
       return 'status';

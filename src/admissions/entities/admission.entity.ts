@@ -1,4 +1,4 @@
-import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { AdmissionFile } from './admission-file.entity';
 
 export enum AdmissionStatus {
@@ -9,60 +9,103 @@ export enum AdmissionStatus {
 }
 
 @Entity('admissions')
+@Unique('UQ_admissions_annee_email', ['annee', 'email'])
+@Unique('UQ_admissions_annee_telephone', ['annee', 'telephone'])
 export class Admission {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column()
-  nom: string;
+  nom!: string;
 
   @Column()
-  prenom: string;
+  prenom!: string;
 
   @Index()
   @Column()
-  email: string;
+  email!: string;
 
-  @Column({ nullable: true })
-  telephone: string;
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  telephone!: string | null;
 
-  @Column()
-  dateNaissance: string;
-
-  @Column()
-  niveau: string;
-
-  @Column()
-  formation: string;
+  /** Année de dépôt de la candidature (une seule candidature autorisée par an et par candidat). */
+  @Index('IDX_admissions_annee')
+  @Column({ type: 'int', default: () => "date_part('year', CURRENT_DATE)::int" })
+  annee!: number;
 
   @Column()
-  diplomePrecedent: string;
+  dateNaissance!: string;
 
-  @Column({ type: 'text', nullable: true })
-  adresse: string | null;
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  lieuNaissance!: string | null;
 
-  @Index({ unique: true })
   @Column({ type: 'varchar', length: 100, nullable: true })
-  numeroBaccalaureat: string | null;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  licenceEtablissement: string | null;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  licenceMention: string | null;
+  nationalite!: string | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  licenceAnneeObtention: string | null;
+  sexe!: string | null;
+
+  @Column()
+  niveau!: string;
+
+  @Column()
+  formation!: string;
+
+  @Column()
+  diplomePrecedent!: string;
+
+  @Column({ type: 'text', nullable: true })
+  adresse!: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  bacType!: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  bacSerie!: string | null;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  bacCategorie!: string | null;
+
+  @Index()
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  numeroBaccalaureat!: string | null;
+
+  @Column({ type: 'varchar', length: 4, nullable: true })
+  bacAnneeObtention!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  bacCentreExamen!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  mention!: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  parcours!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  ancienEtablissement!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  numeroMatricule!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  licenceEtablissement!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  licenceMention!: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  licenceAnneeObtention!: string | null;
 
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 100, nullable: true })
-  numeroBordereau: string | null;
+  numeroBordereau!: string | null;
 
   @Column({ nullable: true })
-  cvPath: string;
+  cvPath!: string;
 
   @Column({ nullable: true })
-  lettreMotivationPath: string;
+  lettreMotivationPath!: string;
 
   @OneToMany(() => AdmissionFile, (file) => file.admission)
   files!: AdmissionFile[];
@@ -73,34 +116,34 @@ export class Admission {
     enum: AdmissionStatus,
     default: AdmissionStatus.EN_ATTENTE,
   })
-  statut: AdmissionStatus;
+  statut!: AdmissionStatus;
 
   @Column({ type: 'text', nullable: true })
-  commentaire: string;
+  commentaire!: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  reponseDate: string | null;
+  reponseDate!: string | null;
 
   @Column({ type: 'varchar', length: 10, nullable: true })
-  reponseHeure: string | null;
+  reponseHeure!: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  reponseLieu: string | null;
+  reponseLieu!: string | null;
 
   @Column({ type: 'text', nullable: true })
-  reponseInstructions: string | null;
+  reponseInstructions!: string | null;
 
   @Column({ type: 'text', nullable: true })
-  reponseMessage: string | null;
+  reponseMessage!: string | null;
 
   @Index()
   @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
-  creeLe: Date;
+  creeLe!: Date;
 
   @Column({
     type: 'timestamptz',
     default: () => 'CURRENT_TIMESTAMP',
     onUpdate: 'CURRENT_TIMESTAMP',
   })
-  misAJourLe: Date;
+  misAJourLe!: Date;
 }

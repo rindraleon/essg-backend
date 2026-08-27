@@ -12,7 +12,6 @@ import { catchError, tap } from 'rxjs/operators';
 import { ActivityLogDescriptionService } from 'src/activity-logs/activity-log-description.service';
 import { ActivityLogService } from 'src/activity-logs/activity-log.service';
 
-
 const LOGGED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const EXCLUDED_MODULES = new Set(['auth']);
 
@@ -121,10 +120,9 @@ export class ActivityLogInterceptor implements NestInterceptor {
     return metadata;
   }
 
-  /** Construit « Prénom Nom » pour l'affichage métier du journal. */
   private resolveUserName(user: AuthUser | null): string | null {
     if (!user) return null;
-    const parts = [user.prenom, user.nom].filter(
+    const parts = [user.nom, user.prenom].filter(
       (part): part is string => typeof part === 'string' && part.trim().length > 0,
     );
     if (parts.length > 0) return parts.join(' ').trim();

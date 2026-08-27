@@ -10,7 +10,6 @@ import {
 } from 'class-validator';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 
-
 export class QueryActivityLogDto extends PaginationQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -37,7 +36,7 @@ export class QueryActivityLogDto extends PaginationQueryDto {
   statusCode?: number;
 
   @IsOptional()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }): unknown => {
     if (value === true || value === 'true' || value === '1') return true;
     if (value === false || value === 'false' || value === '0') return false;
     return value;

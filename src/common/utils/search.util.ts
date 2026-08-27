@@ -8,7 +8,10 @@ export function buildIlikeTerm(value: string): string {
   return `%${escapeIlike(value.trim())}%`;
 }
 
-export function sanitizeSortField(sortBy: string | undefined, allowed: readonly string[]): string | undefined {
+export function sanitizeSortField(
+  sortBy: string | undefined,
+  allowed: readonly string[],
+): string | undefined {
   if (!sortBy) {
     return undefined;
   }

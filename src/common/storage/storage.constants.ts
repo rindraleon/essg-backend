@@ -19,13 +19,13 @@ export const PRIVATE_OBJECT_PREFIXES = ['admissions/'] as const;
 export const MEDIA_ROUTE_PREFIX = 'media';
 
 export function isPrivateObjectKey(objectName: string): boolean {
-  const normalized = objectName.replace(/^\/+/, '');
+  const normalized = objectName.split('/').filter(Boolean).join('/');
   return PRIVATE_OBJECT_PREFIXES.some((prefix) => normalized.startsWith(prefix));
 }
 
 export function normalizeStoragePrefix(value?: string): string {
   if (!value) return STORAGE_PREFIXES.images;
-  const cleaned = value.replace(/^\/+|\/+$/g, '');
+  const cleaned = value.split('/').filter(Boolean).join('/');
   const allowed = new Set<string>(Object.values(STORAGE_PREFIXES));
   if (allowed.has(cleaned)) return cleaned;
   const mapped = cleaned.toLowerCase();

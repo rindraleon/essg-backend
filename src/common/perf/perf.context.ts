@@ -35,10 +35,7 @@ export function addPerf(partial: Partial<RequestPerfStore>): void {
   if (typeof partial.storageOps === 'number') current.storageOps += partial.storageOps;
 }
 
-export async function measureAsync<T>(
-  kind: 'db' | 'storage',
-  fn: () => Promise<T>,
-): Promise<T> {
+export async function measureAsync<T>(kind: 'db' | 'storage', fn: () => Promise<T>): Promise<T> {
   const started = Date.now();
   try {
     return await fn();

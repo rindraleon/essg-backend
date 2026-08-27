@@ -5,11 +5,17 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { API_MESSAGE_KEY } from '../decorators/api-message.decorator';
 import { SKIP_TRANSFORM_KEY } from '../decorators/skip-transform.decorator';
+import {
+  API_SIGNATURE,
+  API_SIGNATURE_HEADER,
+  API_VERSION,
+  API_VERSION_HEADER,
+} from '../constants/api.constants';
 import { ApiResponse, PaginatedData } from '../interfaces/api-response.interface';
 
 function defaultMessage(statusCode: number): string {
@@ -28,7 +34,7 @@ function isPaginatedData(value: unknown): value is PaginatedData<unknown> {
     return false;
   }
   const candidate = value as Partial<PaginatedData<unknown>>;
-  return Array.isArray(candidate.items) && typeof candidate.meta === 'object' && candidate.meta !== null;
+  return Array.isArray(candidate.items) && typeof candidate.meta === 'object';
 }
 
 @Injectable()
@@ -36,8 +42,15 @@ export class TransformInterceptor<T> implements NestInterceptor<T, ApiResponse<u
   intercept(context: ExecutionContext, next: CallHandler<T>): Observable<ApiResponse<unknown>> {
     const ctx = context.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
     const statusCode = response.statusCode ?? HttpStatus.OK;
     const handler = context.getHandler();
+
+    if (typeof response.setHeader === 'function') {
+      response.setHeader(API_SIGNATURE_HEADER, API_SIGNATURE);
+      response.setHeader(API_VERSION_HEADER, API_VERSION);
+    }
+
     if (Reflect.getMetadata(SKIP_TRANSFORM_KEY, handler)) {
       return next.handle() as Observable<ApiResponse<unknown>>;
     }
@@ -46,12 +59,19 @@ export class TransformInterceptor<T> implements NestInterceptor<T, ApiResponse<u
 
     return next.handle().pipe(
       map((data: T) => {
+        const signatureFields = {
+          signature: API_SIGNATURE,
+          timestamp: new Date().toISOString(),
+          path: request?.originalUrl ?? request?.url,
+        };
+
         if (isPaginatedData(data)) {
           return {
             statusCode,
             message,
             data: data.items,
             meta: data.meta,
+            ...signatureFields,
           };
         }
 
@@ -59,6 +79,7 @@ export class TransformInterceptor<T> implements NestInterceptor<T, ApiResponse<u
           statusCode,
           message,
           data: data ?? null,
+          ...signatureFields,
         };
       }),
     );

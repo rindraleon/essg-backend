@@ -3,7 +3,7 @@ import { AdmissionStatus } from '../entities/admission.entity';
 
 export class UpdateAdmissionStatusDto {
   @IsEnum(AdmissionStatus)
-  statut: AdmissionStatus;
+  statut!: AdmissionStatus;
 
   @IsOptional()
   @IsString()

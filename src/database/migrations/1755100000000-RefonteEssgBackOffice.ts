@@ -1,20 +1,9 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-/**
- * Refonte back-office ESSG :
- *  - formations.mention        : niveau 1 de la hiérarchie pédagogique ;
- *  - formations.responsableId  : lien vers la ressource humaine responsable ;
- *  - activity_logs.userName    : auteur dénormalisé pour un journal lisible.
- *
- * La migration est idempotente et rétro-compatible : aucune colonne existante
- * n'est supprimée (`conditionsAcces` et `modules` restent en base le temps que
- * les données historiques soient reprises).
- */
 export class RefonteEssgBackOffice1755100000000 implements MigrationInterface {
   name = 'RefonteEssgBackOffice1755100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    /* ─── formations.mention ─── */
     if (!(await queryRunner.hasColumn('formations', 'mention'))) {
       await queryRunner.addColumn(
         'formations',
@@ -26,7 +15,6 @@ export class RefonteEssgBackOffice1755100000000 implements MigrationInterface {
         }),
       );
 
-      // Reprise des données : le premier élément de `domaine` devient la mention.
       await queryRunner.query(`
         UPDATE formations
         SET mention = COALESCE(NULLIF(domaine::jsonb ->> 0, ''), '')
@@ -34,7 +22,6 @@ export class RefonteEssgBackOffice1755100000000 implements MigrationInterface {
       `);
     }
 
-    /* ─── formations.responsableId ─── */
     if (!(await queryRunner.hasColumn('formations', 'responsableId'))) {
       await queryRunner.addColumn(
         'formations',
@@ -45,8 +32,6 @@ export class RefonteEssgBackOffice1755100000000 implements MigrationInterface {
         }),
       );
 
-      // Rattachement automatique quand le nom du responsable correspond
-      // exactement à une ressource humaine existante.
       await queryRunner.query(`
         UPDATE formations f
         SET "responsableId" = rh.id
@@ -60,7 +45,6 @@ export class RefonteEssgBackOffice1755100000000 implements MigrationInterface {
       `);
     }
 
-    /* ─── activity_logs.userName ─── */
     if (!(await queryRunner.hasColumn('activity_logs', 'userName'))) {
       await queryRunner.addColumn(
         'activity_logs',
@@ -72,18 +56,14 @@ export class RefonteEssgBackOffice1755100000000 implements MigrationInterface {
         }),
       );
 
-      // Reprise de l'historique à partir de la table users.
       await queryRunner.query(`
         UPDATE activity_logs l
-        SET "userName" = TRIM(u.prenom || ' ' || u.nom)
+        SET "userName" = TRIM(u.nom || ' ' || u.prenom)
         FROM users u
         WHERE l."userName" IS NULL AND l."userId" = u.id
       `);
     }
 
-    /* ─── Fusion conditionsAcces → conditions ─── */
-    // `conditionsAcces` (texte libre) faisait doublon avec `conditions` (liste).
-    // On verse la valeur dans la liste lorsqu'elle n'y figure pas déjà.
     await queryRunner.query(`
       UPDATE formations
       SET conditions = (

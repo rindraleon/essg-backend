@@ -1,31 +1,70 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
-import { PaginationDto } from '../common/dto/pagination.dto';
 import { PaginatedData } from '../common/interfaces/api-response.interface';
 import { buildPaginatedData } from '../common/utils/pagination.util';
 import { CreateActualiteDto, UpdateActualiteDto } from './dto/create-news.dto';
+import { QueryNewsDto } from './dto/query-news.dto';
 import { Actualite } from './entities/news-item.entity';
 import { capitalize } from '../common/utils/text.util';
 import { buildUniqueSlug, shouldRegenerateSlug } from '../common/utils/slug.util';
+import { CacheService } from '../infrastructure/cache/cache.service';
+import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
 
 @Injectable()
 export class NewsService {
   constructor(
     @InjectRepository(Actualite)
     private readonly repo: Repository<Actualite>,
+    private readonly cacheService: CacheService,
   ) {}
+
+  private invalidateCache(): void {
+    this.cacheService.invalidateResource(CACHE_RESOURCE.news, CACHE_RESOURCE.dashboard);
+  }
+
+  async findAll(paginationDto: QueryNewsDto): Promise<PaginatedData<Actualite>> {
+    return this.cacheService.getOrSet(
+      this.cacheService.listKey(CACHE_RESOURCE.news, { ...paginationDto }),
+      () => this.findAllFromDatabase(paginationDto),
+      { ttl: CACHE_TTL.MEDIUM, stampedeProtection: true },
+    );
+  }
+
+  async search(query: string, paginationDto: QueryNewsDto): Promise<PaginatedData<Actualite>> {
+    return this.cacheService.getOrSet(
+      this.cacheService.listKey(CACHE_RESOURCE.news, { ...paginationDto, q: query }),
+      () => this.searchFromDatabase(query, paginationDto),
+      { ttl: CACHE_TTL.SHORT },
+    );
+  }
+
+  async findOne(id: number): Promise<Actualite> {
+    return this.cacheService.getOrSet(
+      this.cacheService.itemKey(CACHE_RESOURCE.news, id),
+      () => this.findOneFromDatabase(id),
+      { ttl: CACHE_TTL.MEDIUM },
+    );
+  }
+
+  async findBySlug(slug: string): Promise<Actualite> {
+    return this.cacheService.getOrSet(
+      this.cacheService.slugKey(CACHE_RESOURCE.news, slug),
+      () => this.findBySlugFromDatabase(slug),
+      { ttl: CACHE_TTL.MEDIUM },
+    );
+  }
 
   private async findPaginated(
     where: FindOptionsWhere<Actualite> | FindOptionsWhere<Actualite>[],
-    paginationDto: PaginationDto,
+    paginationDto: QueryNewsDto,
   ): Promise<PaginatedData<Actualite>> {
-    const { page = 1, limit = 10, sortBy, sortOrder = 'ASC' } = paginationDto;
+    const { page = 1, limit = 10, sortBy, sortOrder = 'DESC' } = paginationDto;
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.repo.findAndCount({
       where,
-      order: sortBy ? { [sortBy]: sortOrder } : { date: 'DESC' },
+      order: sortBy ? { [sortBy]: sortOrder } : { creeLe: 'DESC' },
       skip,
       take: limit,
     });
@@ -33,31 +72,45 @@ export class NewsService {
     return buildPaginatedData(data, total, page, limit);
   }
 
-  async findAll(paginationDto: PaginationDto): Promise<PaginatedData<Actualite>> {
-    return this.findPaginated({}, paginationDto);
+  private buildWhere(query: string, filters: QueryNewsDto): FindOptionsWhere<Actualite>[] {
+    const base: FindOptionsWhere<Actualite> = {};
+    if (filters.categorie) base.categorie = filters.categorie;
+    if (filters.statut) base.statut = filters.statut === 'publie';
+    if (!query.trim()) return [base];
+    const term = ILike(`%${query}%`);
+    return [
+      { ...base, titre: term },
+      { ...base, resume: term },
+      { ...base, contenu: term },
+    ];
   }
 
-  async search(query: string, paginationDto: PaginationDto): Promise<PaginatedData<Actualite>> {
-    const where: FindOptionsWhere<Actualite>[] = query
-      ? [{ titre: ILike(`%${query}%`) }, { contenu: ILike(`%${query}%`) }]
-      : [{}];
-    return this.findPaginated(where, paginationDto);
+  private async findAllFromDatabase(
+    paginationDto: QueryNewsDto,
+  ): Promise<PaginatedData<Actualite>> {
+    return this.findPaginated(this.buildWhere('', paginationDto), paginationDto);
   }
 
-  async findOne(id: number): Promise<Actualite> {
+  private async searchFromDatabase(
+    query: string,
+    paginationDto: QueryNewsDto,
+  ): Promise<PaginatedData<Actualite>> {
+    return this.findPaginated(this.buildWhere(query, paginationDto), paginationDto);
+  }
+
+  private async findOneFromDatabase(id: number): Promise<Actualite> {
     const item = await this.repo.findOne({ where: { id } });
     if (!item) throw new NotFoundException('Actualité non trouvée');
     return item;
   }
 
-  async findBySlug(slug: string): Promise<Actualite> {
+  private async findBySlugFromDatabase(slug: string): Promise<Actualite> {
     const item = await this.repo.findOne({ where: { slug } });
     if (!item) throw new NotFoundException('Actualité non trouvée');
     return item;
   }
 
   async create(dto: CreateActualiteDto): Promise<Actualite> {
-    // Slug toujours dérivé du titre, jamais de la saisie utilisateur.
     const slug = await buildUniqueSlug(this.repo, dto.titre);
     const item = this.repo.create({
       ...dto,
@@ -71,7 +124,9 @@ export class NewsService {
       statut: dto.statut ?? false,
       image: dto.image || '/images/hero-campus.jpg',
     });
-    return this.repo.save(item);
+    const saved = await this.repo.save(item);
+    this.invalidateCache();
+    return saved;
   }
 
   async update(id: number, dto: UpdateActualiteDto): Promise<Actualite> {
@@ -92,11 +147,13 @@ export class NewsService {
     if (dto.contenu) updateData.contenu = capitalize(dto.contenu);
     if (dto.galerie) updateData.galerie = dto.galerie;
     await this.repo.update(id, updateData);
+    this.invalidateCache();
     return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
     await this.findOne(id);
     await this.repo.delete(id);
+    this.invalidateCache();
   }
 }

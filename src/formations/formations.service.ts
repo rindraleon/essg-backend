@@ -21,6 +21,8 @@ import {
 import { CreateFormationDto, UpdateFormationDto } from './dto/create-formation.dto';
 import { Formation } from './entities/formation.entity';
 import { RessourceHumaine } from '../ressources-humaines/entities/ressource-humaine.entity';
+import { CacheService } from '../infrastructure/cache/cache.service';
+import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
 
 const FORMATION_SORT_FIELDS = [
   'id',
@@ -41,7 +43,44 @@ export class FormationsService {
     private readonly repo: Repository<Formation>,
     @InjectRepository(RessourceHumaine)
     private readonly ressourceRepo: Repository<RessourceHumaine>,
+    private readonly cacheService: CacheService,
   ) {}
+
+  private invalidateCache(): void {
+    this.cacheService.invalidateResource(CACHE_RESOURCE.formations, CACHE_RESOURCE.dashboard);
+  }
+
+  async findAll(paginationDto: PaginationDto): Promise<PaginatedData<Formation>> {
+    return this.cacheService.getOrSet(
+      this.cacheService.listKey(CACHE_RESOURCE.formations, { ...paginationDto }),
+      () => this.findAllFromDatabase(paginationDto),
+      { ttl: CACHE_TTL.MEDIUM, stampedeProtection: true },
+    );
+  }
+
+  async search(query: string, paginationDto: PaginationDto): Promise<PaginatedData<Formation>> {
+    return this.cacheService.getOrSet(
+      this.cacheService.listKey(CACHE_RESOURCE.formations, { ...paginationDto, q: query }),
+      () => this.searchFromDatabase(query, paginationDto),
+      { ttl: CACHE_TTL.SHORT },
+    );
+  }
+
+  async findOne(id: number): Promise<Formation> {
+    return this.cacheService.getOrSet(
+      this.cacheService.itemKey(CACHE_RESOURCE.formations, id),
+      () => this.findOneFromDatabase(id),
+      { ttl: CACHE_TTL.LONG },
+    );
+  }
+
+  async findBySlug(slug: string): Promise<Formation> {
+    return this.cacheService.getOrSet(
+      this.cacheService.slugKey(CACHE_RESOURCE.formations, slug),
+      () => this.findBySlugFromDatabase(slug),
+      { ttl: CACHE_TTL.LONG },
+    );
+  }
 
   private async resolveResponsable(
     responsableId?: number | null,
@@ -55,19 +94,21 @@ export class FormationsService {
     });
 
     if (!ressource) {
-      throw new BadRequestException("La ressource humaine sélectionnée est introuvable.");
+      throw new BadRequestException('La ressource humaine sélectionnée est introuvable.');
     }
 
     return {
       responsableId: ressource.id,
-      responsable: `${ressource.prenom} ${ressource.nom}`.trim(),
+      responsable: `${ressource.nom} ${ressource.prenom}`.trim(),
     };
   }
 
-  async findAll(paginationDto: PaginationDto): Promise<PaginatedData<Formation>> {
-    const { page = 1, limit = 10, sortBy, sortOrder = 'ASC' } = paginationDto;
+  private async findAllFromDatabase(
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedData<Formation>> {
+    const { page = 1, limit = 10, sortBy, sortOrder = 'DESC' } = paginationDto;
     const skip = (page - 1) * limit;
-    const orderField = sanitizeSortField(sortBy, FORMATION_SORT_FIELDS) ?? 'id';
+    const orderField = sanitizeSortField(sortBy, FORMATION_SORT_FIELDS) ?? 'creeLe';
 
     const [data, total] = await this.repo.findAndCount({
       order: { [orderField]: sortOrder === 'DESC' ? 'DESC' : 'ASC' },
@@ -78,15 +119,18 @@ export class FormationsService {
     return buildPaginatedData(data, total, page, limit);
   }
 
-  async search(query: string, paginationDto: PaginationDto): Promise<PaginatedData<Formation>> {
-    const { page = 1, limit = 10, sortBy, sortOrder = 'ASC' } = paginationDto;
+  private async searchFromDatabase(
+    query: string,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedData<Formation>> {
+    const { page = 1, limit = 10, sortBy, sortOrder = 'DESC' } = paginationDto;
     const skip = (page - 1) * limit;
 
     if (!query?.trim()) {
       return this.findAll(paginationDto);
     }
 
-    const orderField = sanitizeSortField(sortBy, FORMATION_SORT_FIELDS) ?? 'id';
+    const orderField = sanitizeSortField(sortBy, FORMATION_SORT_FIELDS) ?? 'creeLe';
     const term = buildIlikeTerm(query);
 
     const [data, total] = await this.repo
@@ -103,13 +147,13 @@ export class FormationsService {
     return buildPaginatedData(data, total, page, limit);
   }
 
-  async findOne(id: number): Promise<Formation> {
+  private async findOneFromDatabase(id: number): Promise<Formation> {
     const item = await this.repo.findOne({ where: { id } });
     if (!item) throw new NotFoundException('Formation non trouvée');
     return item;
   }
 
-  async findBySlug(slug: string): Promise<Formation> {
+  private async findBySlugFromDatabase(slug: string): Promise<Formation> {
     const item = await this.repo.findOne({ where: { slug } });
     if (!item) throw new NotFoundException('Formation non trouvée');
     return item;
@@ -137,7 +181,9 @@ export class FormationsService {
       programme: capitalizeArray(dto.programme),
       image: dto.image || '/images/hero-campus.jpg',
     });
-    return this.saveOrConflict(item);
+    const saved = await this.saveOrConflict(item);
+    this.invalidateCache();
+    return saved;
   }
 
   async update(id: number, dto: UpdateFormationDto): Promise<Formation> {
@@ -183,12 +229,14 @@ export class FormationsService {
     } catch (error) {
       this.rethrowUnique(error);
     }
+    this.invalidateCache();
     return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
     await this.findOne(id);
     await this.repo.delete(id);
+    this.invalidateCache();
   }
 
   private resolveHierarchy(

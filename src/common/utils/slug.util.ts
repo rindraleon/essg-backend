@@ -18,7 +18,6 @@ export async function buildUniqueSlug<T extends object>(
   let candidate = base;
   let suffix = 1;
 
-  // Boucle bornée : au-delà de 50 collisions on bascule sur un suffixe temporel.
   while (suffix <= 50) {
     const where: Record<string, unknown> = { [column]: candidate };
     if (excludeId !== undefined) {

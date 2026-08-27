@@ -12,39 +12,40 @@ export interface AdminContactNotificationData {
   backOfficeUrl: string;
 }
 
+function infoRow(label: string, value: string): string {
+  return `<div class="info-item"><span class="info-label">${escapeHtml(label)}</span><span class="info-value">${value}</span></div>`;
+}
+
 export function renderAdminContactNotificationTemplate(data: AdminContactNotificationData): string {
+  const infoItems = [
+    infoRow('Nom', `${escapeHtml(data.nom)} ${escapeHtml(data.prenom)}`),
+    infoRow('Email', escapeHtml(data.email)),
+    data.telephone ? infoRow('Téléphone', escapeHtml(data.telephone)) : '',
+    infoRow('Objet', escapeHtml(data.sujet)),
+    infoRow('Date d’envoi', escapeHtml(data.date)),
+  ]
+    .filter(Boolean)
+    .join('');
+
   const content = `
-    <p>Un nouveau message a été envoyé depuis le <strong>formulaire de contact</strong> du site.</p>
+    <p>Bonjour,</p>
+    <p>Nous vous informons qu’un nouveau message a été envoyé depuis le <strong>formulaire de contact</strong> du site de l’ESSG. Vous trouverez ci-dessous les coordonnées de l’expéditeur ainsi que le contenu du message.</p>
+    <p class="recap-title">Coordonnées de l’expéditeur</p>
+    <div class="info-box">${infoItems}</div>
+    <p><strong>Contenu du message :</strong></p>
     <div class="info-box">
-      <div class="info-item">
-        <span class="info-label">Nom :</span>
-        <span class="info-value"> ${escapeHtml(data.nom)} ${escapeHtml(data.prenom)}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">Email</span>
-        <span class="info-value">${escapeHtml(data.email)}</span>
-      </div>
-      ${data.telephone ? `<div class="info-item"><span class="info-label">Téléphone</span><span class="info-value">${escapeHtml(data.telephone)}</span></div>` : ''}
-      <div class="info-item">
-        <span class="info-label">Objet</span>
-        <span class="info-value">${escapeHtml(data.sujet)}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">Date</span>
-        <span class="info-value">${escapeHtml(data.date)}</span>
-      </div>
+      <div class="message-block">${escapeHtml(data.message)}</div>
     </div>
-    <p><strong>Message :</strong></p>
-    <p style="white-space: pre-line;">${escapeHtml(data.message)}</p>
-    <p>Le message est également conservé dans le back-office, où vous pourrez y répondre.</p>
-    <p><a href="${data.backOfficeUrl}" class="button">Ouvrir le back-office</a></p>
+    <p>Le message est également conservé dans le back-office, où vous pourrez y répondre directement.</p>
+    <p style="text-align:center;margin:22px 0;"><a href="${data.backOfficeUrl}" class="button">Ouvrir le back-office</a></p>
+    <p class="signature">Cordialement,<br><span class="sign-name">Notification automatique</span><br>Plateforme ESSG</p>
   `;
 
   const templateData: BaseTemplateData = {
     title: 'Nouveau message de contact',
-    subtitle: `${data.prenom} ${data.nom} vous a écrit`,
+    subtitle: `${data.nom} ${data.prenom} vous a écrit`,
     content,
-    preheader: `Nouveau message de ${data.prenom} ${data.nom}`,
+    preheader: `Nouveau message de ${data.nom} ${data.prenom}`,
     siteUrl: data.backOfficeUrl,
   };
 

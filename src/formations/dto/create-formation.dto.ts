@@ -3,12 +3,10 @@ import { Type } from 'class-transformer';
 import { IsString, IsArray, IsBoolean, IsOptional, IsIn, IsInt, MaxLength } from 'class-validator';
 
 export class CreateFormationDto {
-  
   @IsString()
   @MaxLength(150)
   mention!: string;
 
-  
   @IsArray()
   @IsString({ each: true })
   @MaxLength(100, { each: true })

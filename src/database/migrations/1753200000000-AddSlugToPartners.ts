@@ -4,7 +4,6 @@ export class AddSlugToPartners1753200000000 implements MigrationInterface {
   name = 'AddSlugToPartners1753200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Étape 1 : Ajouter la colonne slug comme nullable (pas de contrainte NOT NULL)
     await queryRunner.addColumn(
       'partners',
       new TableColumn({
@@ -15,7 +14,6 @@ export class AddSlugToPartners1753200000000 implements MigrationInterface {
       }),
     );
 
-    // Créer un index sur la colonne slug pour améliorer les performances
     await queryRunner.createIndex(
       'partners',
       new TableIndex({
@@ -24,7 +22,6 @@ export class AddSlugToPartners1753200000000 implements MigrationInterface {
       }),
     );
 
-    // Étape 2 : Peupler les slugs pour les données existantes
     const partners = (await queryRunner.query(
       'SELECT id, nom FROM partners WHERE slug IS NULL',
     )) as Array<{ id: number; nom: string }>;
@@ -33,7 +30,6 @@ export class AddSlugToPartners1753200000000 implements MigrationInterface {
       await queryRunner.query('UPDATE partners SET slug = $1 WHERE id = $2', [slug, partner.id]);
     }
 
-    // Étape 3 : Rendre la colonne NOT NULL
     await queryRunner.query('ALTER TABLE partners ALTER COLUMN slug SET NOT NULL');
   }
 
@@ -42,9 +38,10 @@ export class AddSlugToPartners1753200000000 implements MigrationInterface {
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/[^a-z0-9]+/g, '-')
+      .split('-')
+      .filter(Boolean)
+      .join('-');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

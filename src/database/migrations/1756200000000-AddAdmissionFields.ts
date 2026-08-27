@@ -70,8 +70,6 @@ export class AddAdmissionFields1756200000000 implements MigrationInterface {
       );
     }
 
-    // L'unicité ne s'applique qu'aux lignes renseignées : les NULL multiples
-    // restent autorisés (les candidatures sans numéro restent valides).
     await queryRunner.createIndex(
       'admissions',
       new TableIndex({

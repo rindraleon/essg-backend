@@ -12,10 +12,7 @@ import { extname } from 'node:path';
 import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import { measureAsync } from '../perf/perf.context';
-import {
-  MEDIA_ROUTE_PREFIX,
-  isPrivateObjectKey,
-} from './storage.constants';
+import { MEDIA_ROUTE_PREFIX, isPrivateObjectKey } from './storage.constants';
 import {
   PresignedDownload,
   PresignedUpload,
@@ -103,9 +100,11 @@ export class StorageService implements OnModuleInit {
     this.assertMinioAvailable();
 
     const bucket = options.bucket ?? this.defaultBucket;
-    const extension = extname(originalName).toLowerCase() || this.extensionFromMime(options.mimetype);
-    const prefix = options.prefix ? options.prefix.replace(/^\/+|\/+$/g, '') : '';
-    const objectName = `${prefix ? `${prefix}/` : ''}${randomUUID()}${extension}`;
+    const extension =
+      extname(originalName).toLowerCase() || this.extensionFromMime(options.mimetype);
+    const prefix = options.prefix ? options.prefix.split('/').filter(Boolean).join('/') : '';
+    const directory = prefix ? `${prefix}/` : '';
+    const objectName = `${directory}${randomUUID()}${extension}`;
     const mimetype = options.mimetype ?? 'application/octet-stream';
     const privateObject = options.privateObject === true || isPrivateObjectKey(objectName);
 
@@ -134,7 +133,6 @@ export class StorageService implements OnModuleInit {
     }
   }
 
-  /** Stockage privé obligatoire (CV / lettre d'admission). */
   async uploadPrivate(
     buffer: Buffer,
     originalName: string,
@@ -203,7 +201,9 @@ export class StorageService implements OnModuleInit {
   ): Promise<StoredFileMetadata | null> {
     if (!this.isMinioConfigured()) return null;
     try {
-      const objectStat = await measureAsync('storage', () => this.client.statObject(bucket, objectName));
+      const objectStat = await measureAsync('storage', () =>
+        this.client.statObject(bucket, objectName),
+      );
       const contentType = objectStat.metaData?.['content-type'] as string | undefined;
       return {
         size: objectStat.size,
@@ -222,9 +222,11 @@ export class StorageService implements OnModuleInit {
   ): Promise<PresignedUpload> {
     this.assertMinioAvailable();
     const bucket = options.bucket ?? this.defaultBucket;
-    const extension = extname(originalName).toLowerCase() || this.extensionFromMime(options.mimetype);
-    const prefix = options.prefix ? options.prefix.replace(/^\/+|\/+$/g, '') : '';
-    const objectName = `${prefix ? `${prefix}/` : ''}${randomUUID()}${extension}`;
+    const extension =
+      extname(originalName).toLowerCase() || this.extensionFromMime(options.mimetype);
+    const prefix = options.prefix ? options.prefix.split('/').filter(Boolean).join('/') : '';
+    const directory = prefix ? `${prefix}/` : '';
+    const objectName = `${directory}${randomUUID()}${extension}`;
     const expiresIn = options.expiresIn ?? DEFAULT_PRESIGN_EXPIRY;
     const mimetype = options.mimetype ?? 'application/octet-stream';
     const privateObject = options.privateObject === true || isPrivateObjectKey(objectName);
@@ -270,11 +272,13 @@ export class StorageService implements OnModuleInit {
   }
 
   getMediaUrl(objectName: string): string {
-    return `${this.appUrl.replace(/\/$/, '')}/${MEDIA_ROUTE_PREFIX}/${objectName}`;
+    const baseUrl = this.appUrl.endsWith('/') ? this.appUrl.slice(0, -1) : this.appUrl;
+    return `${baseUrl}/${MEDIA_ROUTE_PREFIX}/${objectName}`;
   }
 
   extractObjectName(storedUrl: string): string {
-    const cleaned = storedUrl.split('?')[0].replace(/\/+$/, '');
+    let cleaned = storedUrl.split('?')[0];
+    while (cleaned.endsWith('/')) cleaned = cleaned.slice(0, -1);
     if (!cleaned) return '';
 
     if (!/^https?:\/\//i.test(cleaned) && !cleaned.startsWith('/')) {

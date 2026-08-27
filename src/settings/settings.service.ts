@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AppSetting } from './entities/setting.entity';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { CacheService } from '../infrastructure/cache/cache.service';
+import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
 
 const SETTING_ID = 1;
 
@@ -11,6 +13,7 @@ export class SettingsService {
   constructor(
     @InjectRepository(AppSetting)
     private readonly repo: Repository<AppSetting>,
+    private readonly cacheService: CacheService,
   ) {}
 
   private async ensureRow(): Promise<AppSetting> {
@@ -23,8 +26,14 @@ export class SettingsService {
   }
 
   async getPublic(): Promise<{ admissionsOuvertes: boolean }> {
-    const setting = await this.ensureRow();
-    return { admissionsOuvertes: setting.admissionsOuvertes };
+    return this.cacheService.getOrSet(
+      this.cacheService.viewKey(CACHE_RESOURCE.settings, 'public'),
+      async () => {
+        const setting = await this.ensureRow();
+        return { admissionsOuvertes: setting.admissionsOuvertes };
+      },
+      { ttl: CACHE_TTL.LONG, stampedeProtection: true },
+    );
   }
 
   async get(): Promise<AppSetting> {
@@ -36,6 +45,8 @@ export class SettingsService {
     if (dto.admissionsOuvertes !== undefined) {
       setting.admissionsOuvertes = dto.admissionsOuvertes;
     }
-    return this.repo.save(setting);
+    const saved = await this.repo.save(setting);
+    this.cacheService.invalidateResource(CACHE_RESOURCE.settings);
+    return saved;
   }
 }

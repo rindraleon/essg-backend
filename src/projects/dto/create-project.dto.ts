@@ -1,6 +1,32 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
-import { IsString, IsArray, IsOptional, IsIn, IsInt, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsArray,
+  IsOptional,
+  IsIn,
+  IsInt,
+  IsUrl,
+  MaxLength,
+  IsNotEmpty,
+  ValidateNested,
+} from 'class-validator';
+
+export class ProjectSourceDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Le titre de la source est obligatoire' })
+  @MaxLength(150, { message: 'Le titre de la source ne doit pas dépasser 150 caractères' })
+  title!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: "L'URL de la source est obligatoire" })
+  @IsUrl(
+    { require_protocol: false, require_tld: false },
+    { message: "L'URL de la source est invalide" },
+  )
+  @MaxLength(500, { message: "L'URL de la source ne doit pas dépasser 500 caractères" })
+  url!: string;
+}
 
 export class CreateProjetDto {
   @IsString()
@@ -22,7 +48,6 @@ export class CreateProjetDto {
   @MaxLength(10000)
   description!: string;
 
-  /** Identifiants des partenaires sélectionnés dans le Select du back-office. */
   @IsArray()
   @IsOptional()
   @Type(() => Number)
@@ -47,6 +72,12 @@ export class CreateProjetDto {
   galerie?: string[];
 
   @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProjectSourceDto)
+  sources?: ProjectSourceDto[];
+
+  @IsOptional()
   latitude?: number;
 
   @IsOptional()
@@ -67,6 +98,5 @@ export class CreateProjetDto {
   @MaxLength(30)
   adresse?: string;
 }
-
 
 export class UpdateProjetDto extends PartialType(CreateProjetDto) {}

@@ -1,5 +1,5 @@
 import { Logger as NestLogger } from '@nestjs/common';
-import type { Logger, QueryRunner } from 'typeorm';
+import type { Logger } from 'typeorm';
 import { addPerf } from '../perf/perf.context';
 
 export class TypeormPerfLogger implements Logger {
@@ -10,10 +10,10 @@ export class TypeormPerfLogger implements Logger {
     this.verbose = verbose;
   }
 
-  logQuery(_query: string, _parameters?: unknown[], _queryRunner?: QueryRunner): void {
+  logQuery(query: string): void {
     addPerf({ dbQueries: 1 });
     if (this.verbose) {
-      this.logger.debug(_query);
+      this.logger.debug(query);
     }
   }
 

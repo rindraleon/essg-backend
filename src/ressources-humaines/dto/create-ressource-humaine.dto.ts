@@ -17,7 +17,6 @@ import {
   IsValidPhoneOptional,
 } from '../../common/validators/contact.validators';
 
-
 export class ExperienceProfessionnelleDto {
   @IsString()
   @MinLength(5, { message: 'Le poste doit contenir au moins 5 caractères' })
@@ -35,7 +34,6 @@ export class ExperienceProfessionnelleDto {
   periode?: string;
 }
 
-/** Bornes communes aux listes issues du CV, pour éviter tout abus. */
 const LISTE_MAX = 40;
 const ITEM_MAX = 100;
 
@@ -66,12 +64,10 @@ export class CreateRessourceHumaineDto {
   @IsValidPhoneOptional()
   telephone?: string;
 
-
   @IsOptional()
   @IsString()
   @MaxLength(300, { message: "L'adresse ne peut pas dépasser 300 caractères" })
   adresse?: string;
-
 
   @IsOptional()
   @IsArray()
@@ -153,7 +149,6 @@ export class UpdateRessourceHumaineDto {
 
   @IsValidPhoneOptional()
   telephone?: string;
-
 
   @IsOptional()
   @IsString()

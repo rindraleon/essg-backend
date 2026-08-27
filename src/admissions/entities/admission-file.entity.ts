@@ -16,6 +16,11 @@ export enum AdmissionFileType {
   ATTESTATION_BAC = 'attestation_bac',
   RELEVE_L3 = 'releve_l3',
   BORDEREAU = 'bordereau',
+  DEMANDE_INSCRIPTION = 'demande_inscription',
+  PHOTO_IDENTITE = 'photo_identite',
+  ACTE_ETAT_CIVIL = 'acte_etat_civil',
+  DIPLOME_BAC = 'diplome_bac',
+  ATTESTATION_ETABLISSEMENT = 'attestation_etablissement',
 }
 
 export const ADMISSION_FILE_TYPES = Object.values(AdmissionFileType);

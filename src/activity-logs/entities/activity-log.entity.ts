@@ -9,11 +9,6 @@ export class ActivityLog {
   @Column({ type: 'int', nullable: true })
   userId: number | null;
 
-  /**
-   * Nom complet de l'auteur, dénormalisé au moment de l'écriture.
-   * Évite une jointure (et un N+1) à chaque lecture du journal, et conserve
-   * la trace lisible même si le compte utilisateur est supprimé.
-   */
   @Column({ type: 'varchar', length: 200, nullable: true })
   userName: string | null;
 

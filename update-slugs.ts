@@ -26,7 +26,7 @@ async function updateSlugs() {
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '');
-        
+
         await dataSource.getRepository(Projet).save(projet);
         console.log(`Slug généré pour "${projet.titre}": ${projet.slug}`);
       } else if (projet.slug) {

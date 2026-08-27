@@ -10,6 +10,9 @@ import { StorageModule } from './common/storage/storage.module';
 import { EmailDomainModule } from './common/validators/email-domain.module';
 import { validate } from './config/env.validation';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { CacheModule } from './infrastructure/cache/cache.module';
+import { EmailNotificationModule } from './infrastructure/email/email-notification.module';
+import { RateLimitModule } from './infrastructure/rate-limit/rate-limit.module';
 import { DatabaseModule } from './database/database.module';
 import { FormationsModule } from './formations/formations.module';
 import { HealthModule } from './health/health.module';
@@ -21,6 +24,7 @@ import { NewsModule } from './news/news.module';
 import { PartnersModule } from './parteners/partners.module';
 import { ProjectsModule } from './projects/projects.module';
 import { RessourcesHumainesModule } from './ressources-humaines/ressources-humaines.module';
+import { SettingsModule } from './settings/settings.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
 
@@ -32,6 +36,9 @@ import { UsersModule } from './users/users.module';
       validate,
     }),
     DatabaseModule,
+    CacheModule,
+    EmailNotificationModule,
+    RateLimitModule,
     StorageModule,
     EmailDomainModule,
     UsersModule,
@@ -49,12 +56,9 @@ import { UsersModule } from './users/users.module';
     MailModule,
     AdmissionsModule,
     ActivityLogsModule,
-    HealthModule
+    SettingsModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    { provide: APP_INTERCEPTOR, useClass: PerformanceInterceptor },
-  ],
+  providers: [AppService, { provide: APP_INTERCEPTOR, useClass: PerformanceInterceptor }],
 })
 export class AppModule {}

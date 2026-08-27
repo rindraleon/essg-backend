@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 
@@ -7,7 +7,6 @@ import { PaginatedData } from 'src/common/interfaces/api-response.interface';
 import { buildPaginatedData } from 'src/common/utils/pagination.util';
 import { ILIKE_ESCAPE, buildIlikeTerm } from 'src/common/utils/search.util';
 import { ActivityLog } from './entities/activity-log.entity';
-
 
 export interface CreateActivityLogData {
   userId: number | null;
@@ -25,6 +24,8 @@ export interface CreateActivityLogData {
 
 @Injectable()
 export class ActivityLogService {
+  private readonly purgeLogger = new Logger(ActivityLogService.name);
+
   constructor(
     @InjectRepository(ActivityLog)
     private readonly repo: Repository<ActivityLog>,
@@ -55,8 +56,10 @@ export class ActivityLogService {
       if (ids.length > 0) {
         await this.repo.delete(ids);
       }
-    } catch {
-      /* the write path must never fail because of rotation */
+    } catch (error) {
+      this.purgeLogger.warn(
+        `Purge de l'historique impossible : ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

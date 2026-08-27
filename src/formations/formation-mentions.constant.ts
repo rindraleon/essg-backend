@@ -42,7 +42,6 @@ export const MENTION_CODES: readonly string[] = FORMATION_MENTIONS.map((m) => m.
 
 export const MENTION_LABELS: readonly string[] = FORMATION_MENTIONS.map((m) => m.label);
 
-/** Normalise une chaîne pour comparaison insensible à la casse/aux accents. */
 function normalize(value: string): string {
   return value
     .normalize('NFD')
@@ -60,7 +59,6 @@ export function findMention(value?: string | null): FormationMention | undefined
   );
 }
 
-/** Retrouve la mention à laquelle appartient un titre de formation. */
 export function findMentionByTitre(titre?: string | null): FormationMention | undefined {
   if (!titre) return undefined;
   const needle = normalize(titre);
@@ -69,7 +67,6 @@ export function findMentionByTitre(titre?: string | null): FormationMention | un
   );
 }
 
-/** Vérifie qu'un titre appartient bien à la mention fournie. */
 export function isTitreInMention(mentionValue: string, titre: string): boolean {
   const mention = findMention(mentionValue);
   if (!mention) return false;
@@ -77,12 +74,10 @@ export function isTitreInMention(mentionValue: string, titre: string): boolean {
   return mention.titres.some((item) => normalize(item) === needle);
 }
 
-/** Renvoie le libellé canonique d'une mention (ou la valeur telle quelle). */
 export function canonicalMentionLabel(value: string): string {
   return findMention(value)?.label ?? value;
 }
 
-/** Renvoie le titre canonique (casse/accents officiels) s'il est connu. */
 export function canonicalTitre(titre: string): string {
   const needle = normalize(titre);
   for (const mention of FORMATION_MENTIONS) {

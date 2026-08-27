@@ -1,33 +1,28 @@
-FROM node:22-alpine
+FROM node:22-alpine AS dependencies
 
 WORKDIR /app
-
 COPY package*.json ./
+RUN npm ci
 
-RUN npm install
+FROM node:22-alpine AS builder
 
+WORKDIR /app
+COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-
-ARG POSTGRES_HOST
-ARG POSTGRES_PORT
-ARG POSTGRES_USER
-ARG POSTGRES_PASSWORD
-ARG POSTGRES_DB
-
-ARG APP_PORT
-
 RUN npm run build
+RUN npm prune --omit=dev
 
-ENV \
-POSTGRES_HOST=$POSTGRES_HOST \
-POSTGRES_PORT=$POSTGRES_PORT \
-POSTGRES_USER=$POSTGRES_USER \
-POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
-POSTGRES_DB=$POSTGRES_DB \
-APP_PORT=${APP_PORT}
+FROM node:22-alpine AS runtime
 
-EXPOSE ${APP_PORT}
+WORKDIR /app
+ENV NODE_ENV=production
+ENV APP_PORT=3000
+
+COPY --from=builder --chown=node:node /app/package*.json ./
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist ./dist
 
 USER node
+EXPOSE 3000
 
-CMD ["node", "dist/main", "--port", "${APP_PORT}"]
+CMD ["node", "dist/main.js"]
