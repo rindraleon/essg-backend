@@ -22,7 +22,7 @@ pipeline {
         APP_PORT = "${CONTAINER_PORT}"
         APP_URL = "http://localhost:${HOST_PORT}"
         POSTGRES_DB = 'essg'
-        CORS_ORIGINS = 'http://localhost:3000,http://localhost:3001,https://essg-api.itdcmada.com,https://essg.iitdcmada.com,https://essg-admin.itdcmada.com'
+        CORS_ORIGINS = 'http://localhost:3000,http://localhost:3001,https://essg-api.itdcmada.com,https://essg.itdcmada.com,https://essg-admin.itdcmada.com'
 
         // Defaults non sensibles
         UPLOAD_PATH = 'uploads'
