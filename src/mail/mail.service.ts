@@ -61,7 +61,7 @@ export class MailService implements OnModuleInit {
     this.replyTo = this.readString('SMTP_REPLY_TO', this.from);
     this.appUrl = this.readString('APP_URL', 'http://localhost:3000');
     this.backOfficeUrl = this.readString('BACK_OFFICE_URL', 'http://localhost:5000');
-    const rawAdminEmails = this.readString('ADMIN_NOTIFY_EMAILS', 'rindra.leon@gmail.com')
+    const rawAdminEmails = this.readString('ADMIN_NOTIFY_EMAILS', '')
       .split(',')
       .map((email) => email.trim())
       .filter(Boolean);
