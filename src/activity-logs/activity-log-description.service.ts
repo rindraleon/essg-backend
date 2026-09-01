@@ -77,7 +77,7 @@ const DESCRIPTION_TEMPLATES: Record<string, Record<string, string>> = {
 @Injectable()
 export class ActivityLogDescriptionService {
   resolveAction(method: string, segments: string[]): string {
-    const last = segments[segments.length - 1];
+    const last = segments.at(-1);
     if (last === 'status') {
       return 'status';
     }

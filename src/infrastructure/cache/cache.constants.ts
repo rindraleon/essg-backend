@@ -45,7 +45,7 @@ function normalizeValue(value: unknown): string {
   if (Array.isArray(value)) return value.map(normalizeValue).join(',');
   if (value instanceof Date) return value.toISOString();
   if (typeof value === 'string') {
-    return value.trim().toLowerCase().replace(/\s+/g, '-').replace(/:/g, '_');
+    return value.trim().toLowerCase().replace(/\s+/g, '-').replaceAll(':', '_');
   }
   return String(value);
 }
