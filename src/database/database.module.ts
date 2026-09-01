@@ -19,8 +19,8 @@ import { TypeormPerfLogger } from '../common/logger/typeorm-perf.logger';
           password: configService.get<string>('POSTGRES_PASSWORD', 'password'),
           database: configService.get<string>('POSTGRES_DB', 'essg'),
           entities: [__dirname + '/../**/*.entity.{js,ts}'],
-          synchronize: !isProduction,
-          logger: new TypeormPerfLogger(verboseSql && !isProduction),
+          synchronize: isProduction,
+          logger: new TypeormPerfLogger(verboseSql && isProduction),
           logging: isProduction ? ['error'] : ['error', 'warn', 'schema'],
           maxQueryExecutionTime: 200,
         };
