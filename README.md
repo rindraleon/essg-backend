@@ -1,4 +1,4 @@
-# Mon API
+# Backend ESSG — API signée ITDCMADA
 
 <div align="center">
 
@@ -8,7 +8,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-316192)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Backend NestJS avec PostgreSQL**
+**Backend NestJS + PostgreSQL + MinIO — éditeur ITDCMADA**
 
 *API REST scalable et sécurisée générée avec @hiqaody/create-backend-pg*
 
@@ -29,6 +29,10 @@
 - [Tests](#-tests)
 - [Déploiement](#-déploiement)
 - [API Documentation](#-api-documentation)
+- [Architecture (PostgreSQL · MinIO · SMTP)](#-architecture-postgresql--minio--smtp)
+- [Signature ITDCMADA & enveloppe de réponse](#-signature-itdcmada--enveloppe-de-réponse)
+- [Pipeline d'images WebP](#-pipeline-dimages-webp)
+- [Supervision (health)](#-supervision-health)
 
 ---
 
@@ -169,12 +173,107 @@ npm run start:prod
 ### Vérifier que l'API fonctionne
 
 ```bash
+# Carte d'identité de l'API (éditeur, version, liens utiles)
 curl http://localhost:3000
-# Réponse : {"message": "Hello World!"}
+# → {"statusCode":200,…,"data":{"name":"API ESSG — ITDCMADA",…},"signature":"ITDCMADA",…}
 
-# Health check
+# État de santé complet : PostgreSQL + MinIO + mémoire
 curl http://localhost:3000/health
+
+# Sondes dédiées (Docker / Kubernetes)
+curl http://localhost:3000/health/live
+curl -i http://localhost:3000/health/ready   # 503 si la base est injoignable
+
+# Documentation interactive
+open http://localhost:3000/docs              # Swagger UI
+curl http://localhost:3000/docs-json         # schéma OpenAPI
 ```
+
+---
+
+## 🧩 Architecture (PostgreSQL · MinIO · SMTP)
+
+```text
+NestJS ──► PostgreSQL (données)
+       ├─► MinIO (fichiers)
+       └─► SMTP (emails)
+```
+
+Le cache et les quotas sont gérés localement en mémoire. Les emails sont envoyés directement par le service SMTP.
+
+### Démarrer les dépendances
+
+```bash
+# Pile complète
+docker compose up -d --build
+
+# PostgreSQL + MinIO uniquement, API lancée avec npm
+docker compose up -d postgres minio
+```
+
+📖 Détail complet : **[`documentation/architecture.md`](documentation/architecture.md)**
+
+---
+
+## 🔏 Signature ITDCMADA & enveloppe de réponse
+
+Toutes les réponses de l'API — succès **comme** erreurs — sont signées par l'éditeur **ITDCMADA** :
+
+* champ `signature` dans le corps JSON ;
+* en-têtes HTTP `X-Api-Signature: ITDCMADA` et `X-Api-Version` (exposés via CORS) ;
+* mention dans le schéma OpenAPI (`info["x-api-signature"]`) et bandeau dans Swagger UI.
+
+```jsonc
+{
+  "statusCode": 200,
+  "message": "Formations récupérées",
+  "data": [ /* … */ ],
+  "meta": { "total": 42, "page": 1, "limit": 10, "totalPages": 5 },
+  "signature": "ITDCMADA",
+  "timestamp": "2026-08-21T09:30:00.000Z",
+  "path": "/formations?page=1"
+}
+```
+
+Les champs historiques (`statusCode`, `message`, `data`, `meta`) sont inchangés : les clients
+existants ne sont pas impactés.
+
+📖 Détails complets : **[`docs/API.md`](docs/API.md)** · Documentation interactive : `GET /docs`
+
+---
+
+## 🖼️ Pipeline d'images WebP
+
+Toutes les images reçues du Back-Office passent par un pipeline unique (Sharp) :
+
+```text
+Upload → validation (MIME + magic bytes) → Sharp (EXIF, resize, WebP)
+      → MinIO → vérification de l'objet → URL /media/<dossier>/<uuid>.webp → base de données
+```
+
+* code centralisé : `src/common/images/` (`ImageOptimizerService`, `ImageUploadService`) ;
+* aucune logique Sharp dupliquée dans les services métier ;
+* l'original n'est jamais conservé, seul le WebP est stocké ;
+* aucune URL n'est enregistrée en base si le stockage échoue (`503`) ;
+* l'ancienne image est supprimée **après** le succès du remplacement ;
+* presets par usage : `avatar` 512px/q82, `logo` 800px/q86, `staff` 900×1200/q82,
+  `cover` 1920×1080/q80, `gallery` 1600px/q78, `default` 1920px/q80.
+
+Endpoints : `POST /users/{id}/avatar`, `POST|PUT /partners`, `POST /upload/image?folder=…`.
+
+---
+
+## 🩺 Supervision (health)
+
+| Route | Rôle | Codes |
+| --- | --- | --- |
+| `GET /health` | Rapport complet : PostgreSQL, MinIO, mémoire | `200` |
+| `GET /health/live` | Vivacité du process (liveness) | `200` |
+| `GET /health/ready` | Disponibilité (readiness) | `200` / `503` |
+
+`status` global : `ok` (tout est vert), `degraded` (une dépendance est tombée),
+`down` (base **et** stockage indisponibles). Seuil mémoire configurable via
+`HEALTH_MEMORY_LIMIT_MB` (512 Mo par défaut).
 
 ---
 
@@ -653,61 +752,34 @@ pm2 startup
 
 ## 📖 API Documentation
 
-### Endpoints disponibles
+La documentation complète et à jour est générée automatiquement par NestJS/Swagger :
 
-#### Health Check
+| Ressource | URL | Contenu |
+| --- | --- | --- |
+| Swagger UI | `http://localhost:3000/docs` | Documentation interactive (« Try it out », authentification persistante) |
+| Schéma OpenAPI | `http://localhost:3000/docs-json` | JSON, exploitable par Postman / Insomnia / génération de clients |
+| Schéma OpenAPI | `http://localhost:3000/docs-yaml` | YAML |
+| Guide détaillé | [`docs/API.md`](docs/API.md) | Signature, enveloppe, erreurs, pipeline WebP, health, référence des routes |
 
-```http
-GET /health
-```
+**Ce qui est documenté pour chaque endpoint :** résumé, description fonctionnelle, paramètres,
+corps de requête (y compris `multipart/form-data` pour les images), schéma de réponse complet
+**avec le champ `signature: "ITDCMADA"`**, et l'ensemble des erreurs possibles (400/401/403/404/409/503/500).
 
-**Réponse :**
-```json
-{
-  "status": "ok",
-  "info": {
-    "database": { "status": "up" },
-    "memory_heap": { "status": "up" }
-  }
-}
-```
+Le plugin Swagger de NestJS est activé dans `nest-cli.json` : les DTO et entités sont introspectés
+automatiquement (types, contraintes `class-validator`, commentaires JSDoc) — inutile de dupliquer
+les `@ApiProperty`.
 
-#### Root
+### S'authentifier dans Swagger
 
-```http
-GET /
-```
+1. `POST /auth/login` → copier `data.accessToken` ;
+2. bouton **Authorize** (cadenas en haut à droite) → coller le jeton ;
+3. les routes 🔒 sont utilisables directement depuis l'interface.
 
-**Réponse :**
-```json
-{
-  "message": "Hello World!"
-}
-```
+### Regroupement des endpoints
 
-### Générer la documentation Swagger
-
-Pour ajouter Swagger à votre API :
-
-```bash
-npm install @nestjs/swagger
-```
-
-Dans `main.ts` :
-
-```typescript
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-
-const config = new DocumentBuilder()
-  .setTitle('Mon API')
-  .setDescription('Documentation de l\'API')
-  .setVersion('1.0')
-  .build();
-const document = SwaggerModule.createDocument(app, config);
-SwaggerModule.setup('api', app, document);
-```
-
-Accédez à la documentation sur : `http://localhost:3000/api`
+`Santé & supervision`, `Authentification`, `Utilisateurs`, `Formations`, `Projets`, `Actualités`,
+`Partenaires`, `Ressources humaines`, `Admissions`, `Messages de contact`, `Tableau de bord`,
+`Journal d'activité`, `Paramètres`, `Upload & médias`.
 
 ---
 

@@ -1,24 +1,30 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeormPerfLogger } from '../common/logger/typeorm-perf.logger';
 
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('POSTGRES_HOST'),
-        port: configService.get('POSTGRES_PORT'),
-        username: configService.get('POSTGRES_USER'),
-        password: configService.get('POSTGRES_PASSWORD'),
-        database: configService.get('POSTGRES_DB'),
-        entities: [__dirname + '/../**/*.entity.{js,ts}'],
-        synchronize: true,
-        logger: 'advanced-console',
-        logging: ['query', 'error'],
-      }),
+      useFactory: (configService: ConfigService) => {
+        const isProduction = configService.get<string>('NODE_ENV') === 'production';
+        const verboseSql = configService.get<string>('PERF_SQL', 'false') === 'true';
+        return {
+          type: 'postgres',
+          host: configService.get<string>('POSTGRES_HOST', 'localhost'),
+          port: configService.get<number>('POSTGRES_PORT', 5432),
+          username: configService.get<string>('POSTGRES_USER', 'postgres'),
+          password: configService.get<string>('POSTGRES_PASSWORD', 'password'),
+          database: configService.get<string>('POSTGRES_DB', 'essg'),
+          entities: [__dirname + '/../**/*.entity.{js,ts}'],
+          synchronize: !isProduction,
+          logger: new TypeormPerfLogger(verboseSql && !isProduction),
+          logging: isProduction ? ['error'] : ['error', 'warn', 'schema'],
+          maxQueryExecutionTime: 200,
+        };
+      },
     }),
   ],
 })
