@@ -33,6 +33,9 @@ pipeline {
         PERF_LOG = 'false'
         PERF_SQL = 'false'
         PERF_SLOW_MS = '400'
+        SMTP_SECURE = 'false'
+        SMTP_FROM = "ESSG <contact@essg.mg>"
+        SMTP_REPLY_TO = 'contact@essg.mg'
 
         // Logging options
         LOG_DRIVER = 'json-file'
@@ -55,8 +58,8 @@ pipeline {
                         docker build \
                         --build-arg APP_PORT=${APP_PORT} \
                         --build-arg NODE_ENV=${NODE_ENV} \
-                        -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                        -t ${IMAGE_NAME}:latest .
+                        -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                        
                         echo "Image construite : ${IMAGE_NAME}:${IMAGE_TAG}"
                         docker images | grep ${IMAGE_NAME} || true
                     '''
@@ -105,10 +108,10 @@ pipeline {
                             string(credentialsId: 'MINIO_PORT_ID', variable: 'MINIO_PORT'),
                             string(credentialsId: 'MINIO_HOST_ID', variable: 'MINIO_HOST'),
 
-                            string(credentialsId: 'SMTP_HOST_ID', variable: 'SMTP_HOST'),
-                            string(credentialsId: 'SMTP_PORT_ID', variable: 'SMTP_PORT'),
-                            string(credentialsId: 'SMTP_USER_ID', variable: 'SMTP_USER'),
-                            string(credentialsId: 'SMTP_PASS_ID', variable: 'SMTP_PASS'),
+                            string(credentialsId: 'MAILER_HOST_ID', variable: 'SMTP_HOST'),
+                            string(credentialsId: 'MAILER_PORT_ID', variable: 'SMTP_PORT'),
+                            string(credentialsId: 'MAILER_USER_ID', variable: 'SMTP_USER'),
+                            string(credentialsId: 'MAILER_PASS_ID', variable: 'SMTP_PASS'),
 
                             string(credentialsId: 'REDIS_HOST_ID', variable: 'REDIS_HOST'),
                             string(credentialsId: 'REDIS_PORT_ID', variable: 'REDIS_PORT'),
@@ -128,40 +131,43 @@ pipeline {
                         --log-driver ${LOG_DRIVER} \
                         --log-opt max-size=${LOG_MAX_SIZE} \
                         --log-opt max-file=${LOG_MAX_FILE} \
-                        -e NODE_ENV=${NODE_ENV} \
-                        -e APP_ENV=${APP_ENV} \
-                        -e APP_PORT=${APP_PORT} \
-                        -e APP_URL=${APP_URL} \
-                        -e POSTGRES_HOST=${POSTGRES_HOST} \
-                        -e POSTGRES_PORT=${POSTGRES_PORT} \
-                        -e POSTGRES_USER=${POSTGRES_USER} \
-                        -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
-                        -e POSTGRES_DB=${POSTGRES_DB} \
-                        -e UPLOAD_PATH=${UPLOAD_PATH} \
-                        -e MINIO_ENDPOINT=${MINIO_ENDPOINT} \
-                        -e MINIO_HOST=${MINIO_HOST} \
-                        -e MINIO_PORT=${MINIO_PORT} \
-                        -e MINIO_USE_SSL=${MINIO_USE_SSL} \
-                        -e MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY} \
-                        -e MINIO_SECRET_KEY=${MINIO_SECRET_KEY} \
-                        -e MINIO_BUCKET=${MINIO_BUCKET} \
-                        -e RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED} \
-                        -e HEALTH_MEMORY_LIMIT_MB=${HEALTH_MEMORY_LIMIT_MB} \
-                        -e PERF_LOG=${PERF_LOG} \
-                        -e PERF_SQL=${PERF_SQL} \
-                        -e PERF_SLOW_MS=${PERF_SLOW_MS} \
-                        -e JWT_SECRET=${JWT_SECRET} \
-                        -e JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET} \
-                        -e SECRET_KEY=${SECRET_KEY} \
-                        -e SMTP_HOST=${SMTP_HOST} \
-                        -e SMTP_PORT=${SMTP_PORT} \
-                        -e SMTP_USER=${SMTP_USER} \
-                        -e SMTP_PASS=${SMTP_PASS} \
-                        -e REDIS_HOST=${REDIS_HOST} \
-                        -e REDIS_PORT=${REDIS_PORT} \
-                        -e ADMIN_EMAIL=${ADMIN_EMAIL} \
-                        -e ADMIN_PASSWORD=${ADMIN_PASSWORD} \
-                        -e CORS_ORIGINS=${CORS_ORIGINS} \
+                        -e "NODE_ENV=${NODE_ENV}" \
+                        -e "APP_ENV=${APP_ENV}" \
+                        -e "APP_PORT=${APP_PORT}" \
+                        -e "APP_URL=${APP_URL}" \
+                        -e "POSTGRES_HOST=${POSTGRES_HOST}" \
+                        -e "POSTGRES_PORT=${POSTGRES_PORT}" \
+                        -e "POSTGRES_USER=${POSTGRES_USER}" \
+                        -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+                        -e "POSTGRES_DB=${POSTGRES_DB}" \
+                        -e "UPLOAD_PATH=${UPLOAD_PATH}" \
+                        -e "MINIO_ENDPOINT=${MINIO_ENDPOINT}" \
+                        -e "MINIO_HOST=${MINIO_HOST}" \
+                        -e "MINIO_PORT=${MINIO_PORT}" \
+                        -e "MINIO_USE_SSL=${MINIO_USE_SSL}" \
+                        -e "MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}" \
+                        -e "MINIO_SECRET_KEY=${MINIO_SECRET_KEY}" \
+                        -e "MINIO_BUCKET=${MINIO_BUCKET}" \
+                        -e "RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}" \
+                        -e "HEALTH_MEMORY_LIMIT_MB=${HEALTH_MEMORY_LIMIT_MB}" \
+                        -e "PERF_LOG=${PERF_LOG}" \
+                        -e "PERF_SQL=${PERF_SQL}" \
+                        -e "PERF_SLOW_MS=${PERF_SLOW_MS}" \
+                        -e "JWT_SECRET=${JWT_SECRET}" \
+                        -e "JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}" \
+                        -e "SECRET_KEY=${SECRET_KEY}" \
+                        -e "SMTP_HOST=${SMTP_HOST}" \
+                        -e "SMTP_PORT=${SMTP_PORT}" \
+                        -e "SMTP_USER=${SMTP_USER}" \
+                        -e "SMTP_PASS=${SMTP_PASS}" \
+                        -e "SMTP_SECURE=${SMTP_SECURE}" \
+                        -e "SMTP_FROM=${SMTP_FROM}" \
+                        -e "SMTP_REPLY_TO=${SMTP_REPLY_TO}" \
+                        -e "REDIS_HOST=${REDIS_HOST}" \
+                        -e "REDIS_PORT=${REDIS_PORT}" \
+                        -e "ADMIN_EMAIL=${ADMIN_EMAIL}" \
+                        -e "ADMIN_PASSWORD=${ADMIN_PASSWORD}" \
+                        -e "CORS_ORIGINS=${CORS_ORIGINS}" \
                         ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
                     echo "Conteneur démarré (${CONTAINER_NAME}) — image ${IMAGE_NAME}:${IMAGE_TAG}"
