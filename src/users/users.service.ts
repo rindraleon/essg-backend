@@ -9,7 +9,7 @@ import { CreateUtilisateurDto } from './dto/create-user.dto';
 import { UpdateUtilisateurDto } from './dto/update-user.dto';
 import { Utilisateur } from './entities/user.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { capitalize, capitalizeWords, toUpperCase } from '../common/utils/text.util';
+import { capitalizeWords, toUpperCase } from '../common/utils/text.util';
 import { assertEmailIsAvailable } from '../common/utils/duplicate.util';
 import { EmailDomainService } from '../common/validators/email-domain.service';
 

@@ -1,16 +1,21 @@
 import { IsString, IsOptional, IsBoolean, MaxLength, IsNotEmpty } from 'class-validator';
 import { IsValidEmail, IsValidPhoneOptional } from '../../common/validators/contact.validators';
+import { IsValidPersonName } from '../../common/validators/person.validators';
 
 export class CreateMessageDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsValidPersonName(
+    'Le nom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
+  )
+  @IsNotEmpty({ message: 'Le nom est obligatoire.' })
   @MaxLength(100)
   nom!: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsOptional()
+  @IsValidPersonName(
+    'Le prénom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
+  )
   @MaxLength(100)
-  prenom!: string;
+  prenom?: string;
 
   @IsValidEmail()
   email!: string;
@@ -19,12 +24,12 @@ export class CreateMessageDto {
   telephone?: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Le sujet est obligatoire.' })
   @MaxLength(100)
   sujet!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Le message est obligatoire.' })
   @MaxLength(1000)
   message!: string;
 

@@ -1,6 +1,8 @@
 import { applyDecorators } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsEmail, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { IsEmail, IsOptional, MaxLength } from 'class-validator';
+import { normalizePhoneNumber } from '../utils/contact.util';
+import { IsValidPhoneStrictOptional } from './person.validators';
 
 export const EMAIL_MAX_LENGTH = 50;
 export const PHONE_MAX_LENGTH = 25;
@@ -9,17 +11,7 @@ export function normalizeEmail(value: unknown): unknown {
   return typeof value === 'string' ? value.trim().toLowerCase() : value;
 }
 
-export function normalizePhone(value: unknown): unknown {
-  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value;
-}
-
-export function phoneComparisonKey(value?: string | null): string | null {
-  if (!value) return null;
-
-  const digits = value.replace(/\D/g, '');
-  if (digits.length < 6) return null;
-  return digits.slice(-9);
-}
+export { normalizePhoneNumber };
 
 export function IsValidEmail(): PropertyDecorator {
   return applyDecorators(
@@ -51,17 +43,17 @@ export function IsValidEmailOptional(): PropertyDecorator {
   );
 }
 
+/**
+ * Téléphone optionnel : validation stricte du format (chiffres, espaces de
+ * formatage, un seul « + » en tête, longueur réelle contrôlée).
+ * La canonicalisation vers le format international (+261…) est faite par les
+ * services après validation, afin de ne jamais « nettoyer » silencieusement
+ * une saisie invalide.
+ */
 export function IsValidPhoneOptional(): PropertyDecorator {
   return applyDecorators(
-    Transform(({ value }) => {
-      const normalized = normalizePhone(value);
-      return normalized === '' ? undefined : normalized;
-    }),
+    IsValidPhoneStrictOptional(),
     IsOptional(),
-    IsString(),
-    Matches(/^\+?[\d\s()+.-]{6,}$/, {
-      message: 'Numéro de téléphone invalide (exemple : +261 34 00 000 00)',
-    }),
     MaxLength(PHONE_MAX_LENGTH, {
       message: `Le téléphone ne peut pas dépasser ${PHONE_MAX_LENGTH} caractères`,
     }),

@@ -16,6 +16,7 @@ import {
   IsValidEmailOptional,
   IsValidPhoneOptional,
 } from '../../common/validators/contact.validators';
+import { IsValidPersonName } from '../../common/validators/person.validators';
 
 export class ExperienceProfessionnelleDto {
   @IsString()
@@ -38,11 +39,17 @@ const LISTE_MAX = 40;
 const ITEM_MAX = 100;
 
 export class CreateRessourceHumaineDto {
+  @IsValidPersonName(
+    'Le nom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
+  )
   @IsString()
   @MinLength(5, { message: 'Le nom doit contenir au moins 5 caractères' })
   @MaxLength(100, { message: 'Le nom ne peut pas dépasser 100 caractères' })
   nom!: string;
 
+  @IsValidPersonName(
+    'Le prénom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
+  )
   @IsString()
   @MinLength(5, { message: 'Le prénom doit contenir au moins 5 caractères' })
   @MaxLength(100, { message: 'Le prénom ne peut pas dépasser 100 caractères' })

@@ -13,23 +13,52 @@ export interface EmailDomainResult {
 const DISPOSABLE_DOMAINS = new Set([
   'yopmail.com',
   'yopmail.fr',
+
   'mailinator.com',
+
   'guerrillamail.com',
   'guerrillamail.info',
+  'guerrillamail.org',
+
   '10minutemail.com',
+
   'tempmail.com',
   'temp-mail.org',
+
   'throwawaymail.com',
+
   'trashmail.com',
+
   'sharklasers.com',
+
   'getnada.com',
+
   'maildrop.cc',
+
   'fakeinbox.com',
+
   'dispostable.com',
+
   'jetable.org',
+
+  'mailnesia.com',
+
+  'mintemail.com',
+
+  'emailondeck.com',
+
+  'emailfake.com',
+
+  'mohmal.com',
+
+  '1secmail.com',
+
+  'tempail.com',
+
+  'mail.tm',
 ]);
 
-const DEFAULT_TRUSTED_DOMAINS = ['essg.mg', 'essg.sn'];
+const DEFAULT_TRUSTED_DOMAINS = ['essg.mg', 'essg.sn', 'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const DNS_TIMEOUT_MS = 3000;
 

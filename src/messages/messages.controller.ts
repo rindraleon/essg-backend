@@ -64,6 +64,21 @@ export class MessagesController {
     return this.service.search(query.q ?? '', query);
   }
 
+  @Get('verify-email')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(RATE_LIMITS.verifyEmail)
+  @ApiOperation({
+    summary: 'Vérifier une adresse email (public)',
+    description:
+      "Vérifie côté serveur qu'une adresse email est syntaxiquement valide et que son domaine peut recevoir des messages (DNS MX, domaines jetables).\n\n⚠️ Limitation de débit : 20 vérifications par tranche de 5 minutes et par IP.",
+  })
+  @ApiStandardResponse(undefined, { description: 'Vérification effectuée' })
+  @ApiStandardErrors({ auth: false })
+  @ApiMessage('Vérification effectuée')
+  verifyEmail(@Query('email') email?: string) {
+    return this.service.verifyEmail(email);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   @ApiBearerAuth('access-token')

@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { Not, type Repository } from 'typeorm';
-import { normalizeEmail, phoneComparisonKey } from '../validators/contact.validators';
+import { normalizeEmail, phoneComparisonKey } from './contact.util';
 
 export interface DuplicateCheckOptions {
   excludeId?: number;

@@ -9,6 +9,7 @@ import { Projet } from '../projects/entities/project.entity';
 import { Partenaire } from '../parteners/entities/partner.entity';
 import { Admission } from '../admissions/entities/admission.entity';
 import { RessourceHumaine } from '../ressources-humaines/entities/ressource-humaine.entity';
+import { Message } from '../messages/entities/message.entity';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RessourceHumaine } from '../ressources-humaines/entities/ressource-huma
       Partenaire,
       Admission,
       RessourceHumaine,
+      Message,
     ]),
   ],
   controllers: [DashboardController],

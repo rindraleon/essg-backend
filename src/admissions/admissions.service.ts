@@ -16,7 +16,11 @@ import { detectFileType, withDetectedExtension } from '../common/utils/file-type
 import { EmailDomainService } from '../common/validators/email-domain.service';
 import { EmailNotificationService } from '../infrastructure/email/email-notification.service';
 import { SettingsService } from '../settings/settings.service';
-import { normalizeEmail, normalizePhoneNumber } from '../common/utils/contact.util';
+import {
+  normalizeEmail,
+  normalizePhoneNumber,
+  phoneComparisonKey,
+} from '../common/utils/contact.util';
 import { capitalize, capitalizeWords, toUpperCase } from '../common/utils/text.util';
 import { isAdmissionProgramEligible, resolveBacCategory } from './admission-rules.constant';
 import { CreateAdmissionDto } from './dto/create-admission.dto';
@@ -170,10 +174,16 @@ export class AdmissionsService {
         });
         result.emailDisponible = !found;
       }
-      if (telephone) {
-        const found = await this.admissionsRepository.findOne({
-          where: { annee, telephone },
-        });
+      const phoneKey = phoneComparisonKey(telephone);
+      if (phoneKey) {
+        // Comparaison sur les 9 derniers chiffres : cohérente entre les
+        // anciens numéros stockés au format national (032…) et les nouveaux
+        // au format international (+261…).
+        const found = await this.admissionsRepository
+          .createQueryBuilder('admission')
+          .where('admission.annee = :annee', { annee })
+          .andWhere('RIGHT(admission.telephone, 9) = :phoneKey', { phoneKey })
+          .getOne();
         result.telephoneDisponible = !found;
       }
     }
@@ -206,11 +216,15 @@ export class AdmissionsService {
     }
 
     const normalizedTelephone = normalizePhoneNumber(telephone);
-    if (normalizedTelephone) {
-      const found = await this.admissionsRepository.findOne({
-        where: { annee, telephone: normalizedTelephone },
-        select: ['id'],
-      });
+    const phoneKey = phoneComparisonKey(normalizedTelephone);
+    if (phoneKey) {
+      // Comparaison sur les 9 derniers chiffres (formats national et
+      // international confondus).
+      const found = await this.admissionsRepository
+        .createQueryBuilder('admission')
+        .where('admission.annee = :annee', { annee })
+        .andWhere('RIGHT(admission.telephone, 9) = :phoneKey', { phoneKey })
+        .getOne();
       if (found && found.id !== excludeId) {
         throw new ConflictException(
           `Une demande d'admission avec le numéro de téléphone « ${normalizedTelephone} » a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
@@ -354,7 +368,7 @@ export class AdmissionsService {
     const admission = this.admissionsRepository.create({
       ...createAdmissionDto,
       nom: toUpperCase(createAdmissionDto.nom),
-      prenom: capitalizeWords(createAdmissionDto.prenom),
+      prenom: capitalizeWords(createAdmissionDto.prenom ?? ''),
       email: normalizeEmail(createAdmissionDto.email) ?? createAdmissionDto.email.trim(),
       telephone: normalizePhoneNumber(createAdmissionDto.telephone),
       annee,

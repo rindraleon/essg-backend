@@ -31,6 +31,14 @@ export const RATE_LIMITS = {
     strategy: 'ip',
     message: 'Trop de messages envoyés. Merci de patienter quelques minutes avant de réessayer.',
   },
+  verifyEmail: {
+    scope: 'verify-email',
+    limit: 20,
+    windowSeconds: 300,
+    strategy: 'ip',
+    message:
+      'Trop de vérifications d’adresse email. Merci de patienter quelques minutes avant de réessayer.',
+  },
   admission: {
     scope: 'admission',
     limit: 3,

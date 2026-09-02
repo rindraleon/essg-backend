@@ -8,6 +8,7 @@ import { Projet } from '../projects/entities/project.entity';
 import { Partenaire } from '../parteners/entities/partner.entity';
 import { RessourceHumaine } from '../ressources-humaines/entities/ressource-humaine.entity';
 import { Admission } from '../admissions/entities/admission.entity';
+import { Message } from '../messages/entities/message.entity';
 import { CacheService } from '../infrastructure/cache/cache.service';
 import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
 
@@ -19,6 +20,8 @@ export interface DashboardStats {
   totalPartners: number;
   totalAdmissions: number;
   totalResources: number;
+  /** Total des messages reçus via le formulaire de contact. */
+  totalContacts: number;
 }
 
 export interface Activity {
@@ -27,6 +30,8 @@ export interface Activity {
   action: string;
   time: string;
   type: 'user' | 'formation' | 'news' | 'project';
+  /** Photo de profil de l'utilisateur (facultative — l'UI laisse l'emplacement vide sinon). */
+  avatar?: string | null;
 }
 
 export interface Overview {
@@ -51,6 +56,8 @@ export class DashboardService {
     private readonly admissionRepository: Repository<Admission>,
     @InjectRepository(RessourceHumaine)
     private readonly resourceRepository: Repository<RessourceHumaine>,
+    @InjectRepository(Message)
+    private readonly messageRepository: Repository<Message>,
     private readonly cacheService: CacheService,
   ) {}
 
@@ -93,6 +100,7 @@ export class DashboardService {
       totalPartners,
       totalAdmissions,
       totalResources,
+      totalContacts,
     ] = await Promise.all([
       this.userRepository.count(),
       this.formationRepository.count(),
@@ -101,6 +109,7 @@ export class DashboardService {
       this.partnerRepository.count(),
       this.admissionRepository.count(),
       this.resourceRepository.count(),
+      this.messageRepository.count(),
     ]);
 
     return {
@@ -111,13 +120,14 @@ export class DashboardService {
       totalPartners,
       totalAdmissions,
       totalResources,
+      totalContacts,
     };
   }
 
   private async computeRecentActivities(): Promise<Activity[]> {
     const recentUsers = await this.userRepository
       .createQueryBuilder('user')
-      .select(['user.id', 'user.nom', 'user.prenom', 'user.creeLe'])
+      .select(['user.id', 'user.nom', 'user.prenom', 'user.avatar', 'user.creeLe'])
       .orderBy('user.creeLe', 'DESC')
       .limit(5)
       .getMany();
@@ -138,6 +148,7 @@ export class DashboardService {
         action: "s'est inscrit sur la plateforme",
         time: this.formatTime(user.creeLe),
         type: 'user',
+        avatar: user.avatar ?? null,
       });
     });
 
@@ -148,6 +159,7 @@ export class DashboardService {
         action: `a publié l'article "${news.titre}"`,
         time: this.formatTime(news.creeLe),
         type: 'news',
+        avatar: null,
       });
     });
 

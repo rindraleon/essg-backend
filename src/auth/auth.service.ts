@@ -43,7 +43,7 @@ export class AuthService implements OnModuleInit {
         email: adminEmail,
         motDePasse: passwordHash,
         prenom: 'Admin',
-        nom: 'System',
+        nom: 'ESSGG',
         role: 'admin',
         estActif: true,
       });

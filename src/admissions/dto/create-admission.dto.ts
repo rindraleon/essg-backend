@@ -9,22 +9,34 @@ import {
   MaxLength,
 } from 'class-validator';
 import { IsValidEmail, IsValidPhoneOptional } from '../../common/validators/contact.validators';
+import {
+  IsValidBacNumber,
+  IsValidDiplomaYear,
+  IsValidPersonName,
+  IsValidPlaceName,
+} from '../../common/validators/person.validators';
 import { ADMISSION_LEVELS, BAC_CATEGORIES, BAC_TYPES } from '../admission-rules.constant';
 import { AdmissionStatus } from '../entities/admission.entity';
 
 export const ADMISSION_NIVEAUX = ADMISSION_LEVELS;
 export type AdmissionNiveau = (typeof ADMISSION_NIVEAUX)[number];
 
+const ADDRESS_REGEX = /^[\p{L}0-9][\p{L}0-9\s,.'’\-/()]*$/u;
+
 export class CreateAdmissionDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsValidPersonName(
+    'Le nom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
+  )
+  @IsNotEmpty({ message: 'Le nom est obligatoire.' })
   @MaxLength(100)
   nom!: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsOptional()
+  @IsValidPersonName(
+    'Le prénom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
+  )
   @MaxLength(100)
-  prenom!: string;
+  prenom?: string;
 
   @IsValidEmail()
   email!: string;
@@ -35,14 +47,16 @@ export class CreateAdmissionDto {
   @IsDateString()
   dateNaissance!: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(50)
+  @IsValidPlaceName('Veuillez saisir un lieu de naissance valide.')
+  @IsNotEmpty({ message: 'Le lieu de naissance est obligatoire.' })
+  @MaxLength(150)
   lieuNaissance!: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(15)
+  @IsValidPersonName(
+    'La nationalité ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
+  )
+  @IsNotEmpty({ message: 'La nationalité est obligatoire.' })
+  @MaxLength(100)
   nationalite!: string;
 
   @IsString()
@@ -50,8 +64,11 @@ export class CreateAdmissionDto {
   sexe!: string;
 
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(50)
+  @Matches(ADDRESS_REGEX, {
+    message: "L'adresse contient des caractères non autorisés.",
+  })
+  @IsNotEmpty({ message: "L'adresse est obligatoire." })
+  @MaxLength(255)
   adresse!: string;
 
   @IsString()
@@ -81,19 +98,21 @@ export class CreateAdmissionDto {
   @IsIn(BAC_CATEGORIES)
   bacCategorie!: string;
 
-  @IsString()
-  @Matches(/^[A-Za-z0-9\-_/.\s]+$/, {
-    message: "Le numéro d'inscription au baccalauréat contient des caractères invalides",
-  })
-  @MaxLength(100)
+  @IsValidBacNumber(
+    'Le numéro du baccalauréat doit contenir uniquement des chiffres (4 à 20 chiffres).',
+  )
+  @IsNotEmpty({ message: "Le numéro d'inscription au baccalauréat est obligatoire." })
+  @MaxLength(20)
   numeroBaccalaureat!: string;
 
-  @IsString()
-  @Matches(/^\d{4}$/, { message: "L'année d'obtention du baccalauréat doit être au format AAAA" })
+  @IsValidDiplomaYear(
+    "L'année d'obtention du baccalauréat doit être composée de 4 chiffres, dans la plage autorisée.",
+  )
+  @IsNotEmpty({ message: "L'année d'obtention du baccalauréat est obligatoire." })
   bacAnneeObtention!: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsValidPlaceName('Veuillez saisir un centre d’examen valide.')
+  @IsNotEmpty({ message: "Le centre d'examen est obligatoire." })
   @MaxLength(255)
   bacCentreExamen!: string;
 
@@ -128,8 +147,9 @@ export class CreateAdmissionDto {
   licenceMention?: string;
 
   @IsOptional()
-  @IsString()
-  @Matches(/^\d{4}$/, { message: "L'année d'obtention de la Licence doit être au format AAAA" })
+  @IsValidDiplomaYear(
+    "L'année d'obtention de la Licence doit être composée de 4 chiffres, dans la plage autorisée.",
+  )
   licenceAnneeObtention?: string;
 
   @IsOptional()

@@ -11,6 +11,7 @@ import { QueryMessageDto } from './dto/query-message.dto';
 import { ReplyMessageDto } from './dto/reply-message.dto';
 import { Message } from './entities/message.entity';
 import { capitalize, toUpperCase } from '../common/utils/text.util';
+import { normalizePhoneNumber } from '../common/utils/contact.util';
 import { EmailDomainService } from '../common/validators/email-domain.service';
 
 const MESSAGE_SORT_FIELDS = [
@@ -40,6 +41,34 @@ export class MessagesService {
     const result = await this.emailDomainService.check(email);
     if (result.reason) {
       throw new BadRequestException(result.reason);
+    }
+  }
+
+  /**
+   * Vérification serveur de l'adresse email (syntaxe + domaine) pour le
+   * formulaire public : DNS MX et domaines jetables via EmailDomainService.
+   * Aucune clé de service externe n'est exposée au navigateur. En cas
+   * d'indisponibilité DNS, la vérification échoue « ouvert » (valide) pour ne
+   * jamais bloquer la saisie à tort.
+   */
+  async verifyEmail(email?: string): Promise<{ valide: boolean; raison: string | null }> {
+    const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const parts = normalized.split('@');
+    const syntaxeValide =
+      parts.length === 2 &&
+      parts[0].length > 0 &&
+      parts[1].includes('.') &&
+      !normalized.includes(' ') &&
+      normalized.length <= 254;
+    if (!syntaxeValide) {
+      return { valide: false, raison: 'Veuillez saisir une adresse email valide.' };
+    }
+    try {
+      const result = await this.emailDomainService.check(normalized);
+      return { valide: !result.reason, raison: result.reason };
+    } catch {
+      // Indisponibilité du service de vérification : on ne bloque pas la saisie.
+      return { valide: true, raison: null };
     }
   }
 
@@ -114,7 +143,8 @@ export class MessagesService {
     const item = this.repo.create({
       ...dto,
       nom: toUpperCase(dto.nom),
-      prenom: capitalize(dto.prenom),
+      prenom: capitalize(dto.prenom ?? ''),
+      telephone: normalizePhoneNumber(dto.telephone) ?? undefined,
       sujet: capitalize(dto.sujet),
       message: capitalize(dto.message),
     });
