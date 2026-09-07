@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -8,10 +8,13 @@ import { EmailNotificationService } from '../infrastructure/email/email-notifica
 import { CreateUtilisateurDto } from './dto/create-user.dto';
 import { UpdateUtilisateurDto } from './dto/update-user.dto';
 import { Utilisateur } from './entities/user.entity';
+import { PASSWORD_SALT_ROUNDS } from './users.constants';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { capitalizeWords, toUpperCase } from '../common/utils/text.util';
 import { assertEmailIsAvailable } from '../common/utils/duplicate.util';
-import { EmailDomainService } from '../common/validators/email-domain.service';
+import { EmailGuardService } from '../common/email/email-guard.service';
+import { SessionsService } from '../sessions/sessions.service';
+import { SessionEventsService } from '../sessions/session-events.service';
 
 type SanitizedUtilisateur = Omit<Utilisateur, 'motDePasse'>;
 
@@ -23,16 +26,10 @@ export class UsersService {
     @InjectRepository(Utilisateur)
     private readonly repo: Repository<Utilisateur>,
     private readonly emailNotifications: EmailNotificationService,
-    private readonly emailDomainService: EmailDomainService,
+    private readonly emailGuard: EmailGuardService,
+    private readonly sessionsService: SessionsService,
+    private readonly sessionEvents: SessionEventsService,
   ) {}
-
-  private async assertEmailDomainExists(email?: string): Promise<void> {
-    if (!email) return;
-    const result = await this.emailDomainService.check(email);
-    if (result.reason) {
-      throw new BadRequestException(result.reason);
-    }
-  }
 
   private sanitizeUser(user: Utilisateur): SanitizedUtilisateur {
     const sanitized = { ...user } as Partial<Utilisateur>;
@@ -91,10 +88,10 @@ export class UsersService {
   }
 
   async create(dto: CreateUtilisateurDto): Promise<SanitizedUtilisateur> {
-    await this.assertEmailDomainExists(dto.email);
+    await this.emailGuard.assertUsable(dto.email);
     await assertEmailIsAvailable(this.repo, dto.email, 'un autre utilisateur');
 
-    const hashedPassword = await bcrypt.hash(dto.motDePasse, 10);
+    const hashedPassword = await bcrypt.hash(dto.motDePasse, PASSWORD_SALT_ROUNDS);
     const user = this.repo.create({
       ...dto,
       nom: toUpperCase(dto.nom),
@@ -115,14 +112,14 @@ export class UsersService {
 
   async update(id: number, dto: UpdateUtilisateurDto): Promise<SanitizedUtilisateur> {
     const user = await this.findOne(id);
-    await this.assertEmailDomainExists(dto.email);
+    await this.emailGuard.assertUsable(dto.email);
     await assertEmailIsAvailable(this.repo, dto.email, 'un autre utilisateur', {
       excludeId: id,
     });
 
     const data: Partial<Utilisateur> = { ...dto };
     if (dto.motDePasse) {
-      data.motDePasse = await bcrypt.hash(dto.motDePasse, 10);
+      data.motDePasse = await bcrypt.hash(dto.motDePasse, PASSWORD_SALT_ROUNDS);
     }
     if (dto.nom) {
       data.nom = toUpperCase(dto.nom);
@@ -131,7 +128,21 @@ export class UsersService {
       data.prenom = capitalizeWords(dto.prenom);
     }
     await this.repo.update(id, data);
+
+    if (dto.motDePasse) {
+      await this.revokeSessions(id, 'password_changed');
+    } else if (dto.estActif === false && user.estActif) {
+      await this.revokeSessions(id, 'account_disabled');
+    }
+
     return this.findOne(user.id);
+  }
+
+  private async revokeSessions(userId: number, reason: string): Promise<void> {
+    const revoked = await this.sessionsService.revokeAllForUser(userId, null, reason);
+    if (revoked > 0) {
+      await this.sessionEvents.emitSessionRevoked(userId, null, reason);
+    }
   }
 
   async updateAvatar(id: number, avatarUrl: string): Promise<SanitizedUtilisateur> {
@@ -141,6 +152,7 @@ export class UsersService {
 
   async remove(id: number): Promise<void> {
     const user = await this.findOne(id);
+    await this.revokeSessions(user.id, 'account_deleted');
     await this.repo.delete(user.id);
   }
 }

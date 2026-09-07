@@ -20,7 +20,7 @@ export interface DashboardStats {
   totalPartners: number;
   totalAdmissions: number;
   totalResources: number;
-  /** Total des messages reçus via le formulaire de contact. */
+
   totalContacts: number;
 }
 
@@ -30,7 +30,7 @@ export interface Activity {
   action: string;
   time: string;
   type: 'user' | 'formation' | 'news' | 'project';
-  /** Photo de profil de l'utilisateur (facultative — l'UI laisse l'emplacement vide sinon). */
+
   avatar?: string | null;
 }
 

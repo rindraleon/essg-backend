@@ -6,6 +6,27 @@ export type AdmissionLevel = (typeof ADMISSION_LEVELS)[number];
 export type BacType = (typeof BAC_TYPES)[number];
 export type BacCategory = (typeof BAC_CATEGORIES)[number];
 
+export const ADMISSION_SOURCES = [
+  'soifee',
+  'evenement-universite',
+  'radio',
+  'salon-tana',
+  'recommandation',
+] as const;
+
+export type AdmissionSource = (typeof ADMISSION_SOURCES)[number];
+
+export const ADMISSION_SOURCE_LABELS: Record<AdmissionSource, string> = {
+  soifee: 'SOIFEE',
+  'evenement-universite': 'Évènement université',
+  radio: 'Radio',
+  'salon-tana': 'Salon Tana',
+  recommandation: 'Recommandation',
+};
+
+export const ADMISSION_GENRES = ['feminin', 'masculin', 'autre'] as const;
+export type AdmissionGenre = (typeof ADMISSION_GENRES)[number];
+
 const BAC_SERIES: Record<BacType, Record<string, BacCategory>> = {
   general: {
     a1: 'litteraire',
@@ -19,29 +40,40 @@ const BAC_SERIES: Record<BacType, Record<string, BacCategory>> = {
   technologique: {
     tgc: 'technologique',
     tgi: 'technologique',
+    taef: 'technologique',
     tter: 'technologique',
   },
 };
 
+const SERIES_GROUPS = {
+  scientifiqueTechnique: ['c', 'd', 's', 'tgc', 'tgi'],
+
+  scientifiqueAgricole: ['c', 'd', 's', 'taef'],
+
+  toutesSeries: ['a1', 'a2', 'c', 'd', 'l', 's', 'ose', 'tgc', 'tgi', 'taef', 'tter'],
+} as const;
+
 const MENTIONS = [
   {
     id: 'geoinformatique',
-    parcours: ['geomatique-teledetection'],
-    categories: ['scientifique', 'technologique', 'ose'],
+    parcours: {
+      'geomatique-teledetection': SERIES_GROUPS.scientifiqueTechnique,
+    },
   },
   {
     id: 'geomatique-applications',
-    parcours: [
-      'geomatique-geologie-economique',
-      'geomatique-agriculture-durable',
-      'geomatique-ecosystemes',
-    ],
-    categories: ['scientifique', 'technologique', 'ose'],
+    parcours: {
+      'geomatique-geologie-economique': SERIES_GROUPS.scientifiqueTechnique,
+      'geomatique-agriculture-durable': SERIES_GROUPS.scientifiqueAgricole,
+      'geomatique-ecosystemes': SERIES_GROUPS.scientifiqueTechnique,
+    },
   },
   {
     id: 'geomatique-management',
-    parcours: ['geomatique-communication-marketing', 'geomatique-genre-inclusion-developpement'],
-    categories: ['scientifique', 'litteraire', 'technologique', 'ose'],
+    parcours: {
+      'geomatique-communication-marketing': SERIES_GROUPS.toutesSeries,
+      'geomatique-genre-inclusion-developpement': SERIES_GROUPS.toutesSeries,
+    },
   },
 ] as const;
 
@@ -53,7 +85,7 @@ export function resolveBacCategory(type: string, serie: string): BacCategory | n
 
 export function isAdmissionProgramEligible(
   level: string,
-  category: string,
+  serie: string,
   mention: string,
   parcours: string,
 ): boolean {
@@ -61,8 +93,9 @@ export function isAdmissionProgramEligible(
   if (!ADMISSION_LEVELS.includes(normalizedLevel as AdmissionLevel)) return false;
   const rule = MENTIONS.find((item) => item.id === mention.trim().toLowerCase());
   if (!rule) return false;
-  return (
-    rule.categories.includes(category.trim().toLowerCase() as never) &&
-    rule.parcours.includes(parcours.trim().toLowerCase() as never)
-  );
+  const allowedSeries = (rule.parcours as Record<string, readonly string[]>)[
+    parcours.trim().toLowerCase()
+  ];
+  if (!allowedSeries) return false;
+  return allowedSeries.includes(serie.trim().toLowerCase());
 }

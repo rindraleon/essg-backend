@@ -8,8 +8,6 @@ export class AddAnnualUniquenessToAdmissions1756600000000 implements MigrationIn
       return;
     }
 
-    // 1. Année de dépôt : colonne, remplissage depuis creeLe, NOT NULL,
-    // puis DEFAULT (identique à celui de l'entité pour converge avec synchronize).
     if (!(await queryRunner.hasColumn('admissions', 'annee'))) {
       await queryRunner.query(`ALTER TABLE "admissions" ADD "annee" integer`);
       await queryRunner.query(`UPDATE "admissions" SET "annee" = EXTRACT(YEAR FROM "creeLe")::int`);
@@ -22,11 +20,8 @@ export class AddAnnualUniquenessToAdmissions1756600000000 implements MigrationIn
       `CREATE INDEX IF NOT EXISTS "IDX_admissions_annee" ON "admissions" ("annee")`,
     );
 
-    // 2a. Normalisation des emails : trim + minuscules.
     await queryRunner.query(`UPDATE "admissions" SET "email" = LOWER(TRIM("email"))`);
 
-    // 2b. Normalisation des téléphones : chiffres uniquement, préfixes
-    // internationaux (+261 / 00261) ramenés au format local malgache (0…).
     await queryRunner.query(`
       UPDATE "admissions" AS a
       SET "telephone" = n.normalized
@@ -46,8 +41,6 @@ export class AddAnnualUniquenessToAdmissions1756600000000 implements MigrationIn
       WHERE a.id = n.id
     `);
 
-    // 3. Dédoublonnage : pour une même année, le dossier le plus ancien est
-    // conservé ; les pièces jointes suivent via ON DELETE CASCADE.
     await queryRunner.query(`
       DELETE FROM "admissions" AS a
       USING "admissions" AS b
@@ -64,8 +57,6 @@ export class AddAnnualUniquenessToAdmissions1756600000000 implements MigrationIn
         AND a.id > b.id
     `);
 
-    // 4. Contraintes d'unicité annuelles (créées uniquement si absentes :
-    // synchronize peut déjà les avoir posées depuis les décorateurs @Unique).
     await queryRunner.query(`
       DO $$
       BEGIN

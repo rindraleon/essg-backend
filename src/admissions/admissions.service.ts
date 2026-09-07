@@ -13,7 +13,7 @@ import { StorageService } from '../common/storage/storage.service';
 import { ILIKE_ESCAPE, buildIlikeTerm, sanitizeSortField } from '../common/utils/search.util';
 import { buildPaginatedData } from '../common/utils/pagination.util';
 import { detectFileType, withDetectedExtension } from '../common/utils/file-type.util';
-import { EmailDomainService } from '../common/validators/email-domain.service';
+import { EmailGuardService } from '../common/email/email-guard.service';
 import { EmailNotificationService } from '../infrastructure/email/email-notification.service';
 import { SettingsService } from '../settings/settings.service';
 import {
@@ -55,14 +55,14 @@ export const ADMISSION_FILE_MAX_SIZE = 10 * 1024 * 1024;
 export const ADMISSION_FILE_LABELS: Record<AdmissionFileType, string> = {
   [AdmissionFileType.CV]: 'CV',
   [AdmissionFileType.LETTRE]: 'Lettre de motivation',
-  [AdmissionFileType.RELEVE_BAC]: 'Relevé de notes du baccalauréat',
+  [AdmissionFileType.RELEVE_BAC]: 'Relevé de notes BAC ou extrait de liste',
   [AdmissionFileType.ATTESTATION_BAC]: 'Attestation de réussite au baccalauréat',
   [AdmissionFileType.RELEVE_L3]: 'Relevé de notes L3',
   [AdmissionFileType.BORDEREAU]: 'Bordereau de versement',
   [AdmissionFileType.DEMANDE_INSCRIPTION]: "Demande d'inscription",
   [AdmissionFileType.PHOTO_IDENTITE]: "Photo d'identité",
   [AdmissionFileType.ACTE_ETAT_CIVIL]: "Acte d'état civil",
-  [AdmissionFileType.DIPLOME_BAC]: 'Diplôme du baccalauréat',
+  [AdmissionFileType.DIPLOME_BAC]: 'Diplôme du baccalauréat (facultatif)',
   [AdmissionFileType.ATTESTATION_ETABLISSEMENT]: "Attestation de l'ancien établissement",
 };
 
@@ -97,17 +97,9 @@ export class AdmissionsService {
     private readonly filesRepository: Repository<AdmissionFile>,
     private readonly emailNotifications: EmailNotificationService,
     private readonly storageService: StorageService,
-    private readonly emailDomainService: EmailDomainService,
+    private readonly emailGuard: EmailGuardService,
     private readonly settingsService: SettingsService,
   ) {}
-
-  private async assertEmailDomainExists(email?: string): Promise<void> {
-    if (!email) return;
-    const result = await this.emailDomainService.check(email);
-    if (result.reason) {
-      throw new BadRequestException(result.reason);
-    }
-  }
 
   private async assertAdmissionsOpen(): Promise<void> {
     const settings = await this.settingsService.getPublic();
@@ -176,9 +168,6 @@ export class AdmissionsService {
       }
       const phoneKey = phoneComparisonKey(telephone);
       if (phoneKey) {
-        // Comparaison sur les 9 derniers chiffres : cohérente entre les
-        // anciens numéros stockés au format national (032…) et les nouveaux
-        // au format international (+261…).
         const found = await this.admissionsRepository
           .createQueryBuilder('admission')
           .where('admission.annee = :annee', { annee })
@@ -191,11 +180,6 @@ export class AdmissionsService {
     return result;
   }
 
-  /**
-   * Bloque une nouvelle candidature si l'email OU le téléphone a déjà été
-   * utilisé pour une demande d'admission au cours de la même année.
-   * Les deux vérifications sont indépendantes.
-   */
   private async assertNoAnnualDuplicate(
     email: string,
     telephone?: string,
@@ -218,8 +202,6 @@ export class AdmissionsService {
     const normalizedTelephone = normalizePhoneNumber(telephone);
     const phoneKey = phoneComparisonKey(normalizedTelephone);
     if (phoneKey) {
-      // Comparaison sur les 9 derniers chiffres (formats national et
-      // international confondus).
       const found = await this.admissionsRepository
         .createQueryBuilder('admission')
         .where('admission.annee = :annee', { annee })
@@ -233,7 +215,6 @@ export class AdmissionsService {
     }
   }
 
-  /** Convertit une violation de contrainte d'unicité annuelle en erreur explicite. */
   private mapAnnualUniqueViolation(error: unknown, annee: number): void {
     const pgError = error as {
       code?: string;
@@ -287,13 +268,9 @@ export class AdmissionsService {
       }
     }
 
-    const currentYear = new Date().getFullYear();
-    const bacYear = Number(dto.bacAnneeObtention);
-    const bacProof =
-      bacYear === currentYear ? AdmissionFileType.RELEVE_BAC : AdmissionFileType.DIPLOME_BAC;
-    if (!files[bacProof]) {
+    if (!files[AdmissionFileType.RELEVE_BAC]) {
       throw new BadRequestException(
-        `La pièce « ${ADMISSION_FILE_LABELS[bacProof]} » est obligatoire.`,
+        `La pièce « ${ADMISSION_FILE_LABELS[AdmissionFileType.RELEVE_BAC]} » est obligatoire.`,
       );
     }
 
@@ -325,7 +302,7 @@ export class AdmissionsService {
         'Le type, la série et la catégorie du baccalauréat sont incohérents.',
       );
     }
-    if (!isAdmissionProgramEligible(niveau, detectedCategory, dto.mention, dto.parcours)) {
+    if (!isAdmissionProgramEligible(niveau, dto.bacSerie, dto.mention, dto.parcours)) {
       throw new BadRequestException(
         "La formation sélectionnée n'est pas compatible avec le profil du candidat.",
       );
@@ -348,11 +325,10 @@ export class AdmissionsService {
     uploadedFiles: Record<string, AdmissionUploadedFile> = {},
   ): Promise<Admission> {
     await this.assertAdmissionsOpen();
-    await this.assertEmailDomainExists(createAdmissionDto.email);
+    await this.emailGuard.assertDeliverable(createAdmissionDto.email);
     this.validateRequiredFields(createAdmissionDto.niveau, createAdmissionDto);
     await this.assertNoDuplicate(createAdmissionDto.numeroBordereau);
 
-    // Une seule candidature par candidat et par année (email et téléphone vérifiés indépendamment).
     const annee = getCurrentAdmissionYear();
     await this.assertNoAnnualDuplicate(
       createAdmissionDto.email,
@@ -399,8 +375,6 @@ export class AdmissionsService {
     try {
       saved = await this.admissionsRepository.save(admission);
     } catch (error) {
-      // Filet de sécurité contre les soumissions simultanées (la contrainte
-      // d'unicité en base garantit l'intégrité même en cas de course).
       this.mapAnnualUniqueViolation(error, annee);
       throw error;
     }

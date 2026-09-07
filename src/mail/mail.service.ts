@@ -30,7 +30,8 @@ import {
   AdminContactNotificationData,
   renderAdminContactNotificationTemplate,
 } from './templates/admin-contact-notification.template';
-import { htmlToText, isValidEmail, MAIL_ERROR, toMailHttpException } from './mail.errors';
+import { htmlToText, MAIL_ERROR, toMailHttpException } from './mail.errors';
+import { checkEmailSyntax } from '../common/email/email-format.util';
 
 export interface SendEmailOptions {
   to: string;
@@ -65,7 +66,7 @@ export class MailService implements OnModuleInit {
       .split(',')
       .map((email) => email.trim())
       .filter(Boolean);
-    this.adminNotifyEmails = rawAdminEmails.filter(isValidEmail);
+    this.adminNotifyEmails = rawAdminEmails.filter((email) => checkEmailSyntax(email).valid);
     if (rawAdminEmails.length !== this.adminNotifyEmails.length) {
       this.logger.warn('ADMIN_NOTIFY_EMAILS contient des adresses invalides — elles sont ignorées');
     }
@@ -114,9 +115,10 @@ export class MailService implements OnModuleInit {
 
   async sendEmail(options: SendEmailOptions): Promise<void> {
     const to = options.to.trim();
-    if (!isValidEmail(to)) {
+    const validation = checkEmailSyntax(to);
+    if (!validation.valid) {
       this.logger.warn(`Envoi refusé : adresse invalide (${to || 'vide'})`);
-      throw new BadRequestException(MAIL_ERROR.INVALID_ADDRESS);
+      throw new BadRequestException(validation.reason ?? MAIL_ERROR.INVALID_ADDRESS);
     }
     if (!this.configured) {
       this.logger.error(`Envoi impossible vers ${to} : SMTP non configuré`);

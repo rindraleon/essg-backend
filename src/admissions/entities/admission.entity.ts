@@ -28,7 +28,6 @@ export class Admission {
   @Column({ type: 'varchar', length: 50, nullable: true })
   telephone!: string | null;
 
-  /** Année de dépôt de la candidature (une seule candidature autorisée par an et par candidat). */
   @Index('IDX_admissions_annee')
   @Column({ type: 'int', default: () => "date_part('year', CURRENT_DATE)::int" })
   annee!: number;
@@ -43,7 +42,7 @@ export class Admission {
   nationalite!: string | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  sexe!: string | null;
+  genre!: string | null;
 
   @Column()
   niveau!: string;
@@ -100,6 +99,9 @@ export class Admission {
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 100, nullable: true })
   numeroBordereau!: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  sourceReconnaissance!: string | null;
 
   @Column({ nullable: true })
   cvPath!: string;

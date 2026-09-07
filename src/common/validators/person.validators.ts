@@ -7,17 +7,14 @@ import {
   type ValidatorConstraintInterface,
 } from 'class-validator';
 
-
 const INTERNATIONAL_MIN_DIGITS = 8;
 const INTERNATIONAL_MAX_DIGITS = 15;
-
 
 export const DIPLOMA_YEAR_MIN = 1980;
 
 export function currentYear(): number {
   return new Date().getFullYear();
 }
-
 
 export const PERSON_NAME_REGEX = /^\p{L}(?:[\p{L}'’ -]*\p{L})?$/u;
 

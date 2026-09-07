@@ -23,6 +23,7 @@ import { Formation } from './entities/formation.entity';
 import { RessourceHumaine } from '../ressources-humaines/entities/ressource-humaine.entity';
 import { CacheService } from '../infrastructure/cache/cache.service';
 import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
+import { EmailGuardService } from '../common/email/email-guard.service';
 
 const FORMATION_SORT_FIELDS = [
   'id',
@@ -44,6 +45,7 @@ export class FormationsService {
     @InjectRepository(RessourceHumaine)
     private readonly ressourceRepo: Repository<RessourceHumaine>,
     private readonly cacheService: CacheService,
+    private readonly emailGuard: EmailGuardService,
   ) {}
 
   private invalidateCache(): void {
@@ -160,6 +162,7 @@ export class FormationsService {
   }
 
   async create(dto: CreateFormationDto): Promise<Formation> {
+    await this.emailGuard.assertUsable(dto.email);
     const { titre, mention } = this.resolveHierarchy(dto.titre, dto.mention);
     const slug = await buildUniqueSlug(this.repo, titre);
     const responsableInfo = await this.resolveResponsable(dto.responsableId);
@@ -188,6 +191,7 @@ export class FormationsService {
 
   async update(id: number, dto: UpdateFormationDto): Promise<Formation> {
     const current = await this.findOne(id);
+    await this.emailGuard.assertUsable(dto.email);
     const updateData: Partial<Formation> = { ...dto };
     delete (updateData as { slug?: string }).slug;
 

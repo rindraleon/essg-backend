@@ -4,10 +4,11 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdmissionsModule } from './admissions/admissions.module';
+import { SessionsModule } from './sessions/sessions.module';
 import { AuthModule } from './auth/auth.module';
 import { PerformanceInterceptor } from './common/interceptors/performance.interceptor';
 import { StorageModule } from './common/storage/storage.module';
-import { EmailDomainModule } from './common/validators/email-domain.module';
+import { EmailModule } from './common/email/email.module';
 import { validate } from './config/env.validation';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CacheModule } from './infrastructure/cache/cache.module';
@@ -40,9 +41,10 @@ import { UsersModule } from './users/users.module';
     EmailNotificationModule,
     RateLimitModule,
     StorageModule,
-    EmailDomainModule,
+    EmailModule,
     UsersModule,
     AuthModule,
+    SessionsModule,
     FormationsModule,
     ProjectsModule,
     PartnersModule,

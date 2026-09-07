@@ -1,4 +1,11 @@
-import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  HttpException,
+  Injectable,
+  Logger,
+  NestInterceptor,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
@@ -36,7 +43,8 @@ export class PerformanceInterceptor implements NestInterceptor {
       next.handle().pipe(
         tap({
           next: (body) => this.finish(request, response, store, started, body),
-          error: () => this.finish(request, response, store, started, undefined, true),
+          error: (error: unknown) =>
+            this.finish(request, response, store, started, undefined, true, error),
         }),
       ),
     );
@@ -49,6 +57,7 @@ export class PerformanceInterceptor implements NestInterceptor {
     started: number,
     body: unknown,
     failed = false,
+    error?: unknown,
   ): void {
     const totalMs = Date.now() - started;
     const size = this.estimateSize(body);
@@ -66,7 +75,7 @@ export class PerformanceInterceptor implements NestInterceptor {
     const payload = {
       method: request.method,
       path: request.originalUrl ?? request.url,
-      status: response.statusCode,
+      status: this.resolveStatus(response, error),
       totalMs,
       dbMs: store.dbMs,
       dbQueries: store.dbQueries,
@@ -80,6 +89,12 @@ export class PerformanceInterceptor implements NestInterceptor {
     } else {
       this.logger.debug(JSON.stringify(payload));
     }
+  }
+
+  private resolveStatus(response: Response, error?: unknown): number {
+    if (error instanceof HttpException) return error.getStatus();
+    if (error) return 500;
+    return response.statusCode;
   }
 
   private estimateSize(body: unknown): number {

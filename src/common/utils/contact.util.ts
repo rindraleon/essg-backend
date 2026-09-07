@@ -24,7 +24,6 @@ export function normalizePhoneNumber(value?: string | null): string | null {
   return hadPlusPrefix || digits.length > 10 ? `+${digits}` : digits;
 }
 
-
 export function phoneComparisonKey(value?: string | null): string | null {
   if (!value) return null;
   const digits = value.replace(/\D/g, '');

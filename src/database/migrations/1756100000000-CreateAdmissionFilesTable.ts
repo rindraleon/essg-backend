@@ -10,7 +10,7 @@ export class CreateAdmissionFilesTable1756100000000 implements MigrationInterfac
         columns: [
           {
             name: 'id',
-            type: 'serial',
+            type: 'int',
             isPrimary: true,
             isGenerated: true,
             generationStrategy: 'increment',

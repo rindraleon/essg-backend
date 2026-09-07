@@ -37,3 +37,12 @@ export class PaginationQueryDto extends PaginationDto {
   @MaxLength(200)
   q?: string;
 }
+
+export class FullListQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 100;
+}

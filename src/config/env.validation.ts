@@ -54,6 +54,22 @@ class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
+  ADMIN_EMAIL?: string;
+
+  @IsString()
+  @IsOptional()
+  ADMIN_PASSWORD?: string;
+
+  @IsString()
+  @IsOptional()
+  ADMIN_PRENOM?: string;
+
+  @IsString()
+  @IsOptional()
+  ADMIN_NOM?: string;
+
+  @IsString()
+  @IsOptional()
   JWT_SECRET: string = 'essg-default-secret-key-change-in-production';
 
   @IsString()
@@ -79,7 +95,19 @@ class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
+  DB_AUTO_MIGRATE: string = 'true';
+
+  @IsString()
+  @IsOptional()
   EMAIL_TRUSTED_DOMAINS: string = '';
+
+  @IsString()
+  @IsOptional()
+  EMAIL_SMTP_PROBE: string = 'false';
+
+  @IsString()
+  @IsOptional()
+  EMAIL_SMTP_PROBE_SENDER: string = 'noreply@essg.mg';
 
   @IsString()
   @IsOptional()

@@ -20,7 +20,7 @@ import {
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ApiMessage } from '../common/decorators/api-message.decorator';
-import { PaginationQueryDto } from '../common/dto/pagination.dto';
+import { FullListQueryDto, PaginationQueryDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -72,7 +72,7 @@ export class UsersController {
   @ApiPaginatedResponse(undefined, 'Liste paginée des utilisateurs (mot de passe jamais exposé)')
   @ApiStandardErrors()
   @ApiMessage('Utilisateurs récupérés')
-  findAll(@Query() paginationDto: PaginationQueryDto) {
+  findAll(@Query() paginationDto: FullListQueryDto) {
     return this.service.findAll(paginationDto);
   }
 

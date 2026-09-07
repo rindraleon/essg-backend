@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginatedData } from '../common/interfaces/api-response.interface';
@@ -13,7 +13,7 @@ import { ExperienceProfessionnelle, RessourceHumaine } from './entities/ressourc
 import { capitalize, capitalizeWords, toUpperCase } from '../common/utils/text.util';
 import { buildUniqueSlug, shouldRegenerateSlug } from '../common/utils/slug.util';
 import { assertEmailIsAvailable, assertPhoneIsAvailable } from '../common/utils/duplicate.util';
-import { EmailDomainService } from '../common/validators/email-domain.service';
+import { EmailGuardService } from '../common/email/email-guard.service';
 import { ILIKE_ESCAPE, buildIlikeTerm } from '../common/utils/search.util';
 import { CacheService } from '../infrastructure/cache/cache.service';
 import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
@@ -53,7 +53,7 @@ export class RessourcesHumainesService {
   constructor(
     @InjectRepository(RessourceHumaine)
     private readonly repo: Repository<RessourceHumaine>,
-    private readonly emailDomainService: EmailDomainService,
+    private readonly emailGuard: EmailGuardService,
     private readonly cacheService: CacheService,
   ) {}
 
@@ -109,14 +109,6 @@ export class RessourcesHumainesService {
       () => this.findAllIncludingInactiveFromDatabase(paginationDto),
       { ttl: CACHE_TTL.LONG },
     );
-  }
-
-  private async assertEmailDomainExists(email?: string): Promise<void> {
-    if (!email) return;
-    const result = await this.emailDomainService.check(email);
-    if (result.reason) {
-      throw new BadRequestException(result.reason);
-    }
   }
 
   private async findPaginated(
@@ -196,7 +188,7 @@ export class RessourcesHumainesService {
   }
 
   async create(dto: CreateRessourceHumaineDto): Promise<RessourceHumaine> {
-    await this.assertEmailDomainExists(dto.email);
+    await this.emailGuard.assertUsable(dto.email);
     await assertEmailIsAvailable(this.repo, dto.email, 'une autre ressource humaine');
     await assertPhoneIsAvailable(this.repo, dto.telephone, 'une autre ressource humaine');
 
@@ -224,7 +216,7 @@ export class RessourcesHumainesService {
 
   async update(id: number, dto: UpdateRessourceHumaineDto): Promise<RessourceHumaine> {
     const current = await this.findOne(id);
-    await this.assertEmailDomainExists(dto.email);
+    await this.emailGuard.assertUsable(dto.email);
     await assertEmailIsAvailable(this.repo, dto.email, 'une autre ressource humaine', {
       excludeId: id,
     });

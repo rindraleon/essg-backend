@@ -133,7 +133,7 @@ export class AdmissionsController {
   @ApiOperation({
     summary: 'Déposer une candidature (public)',
     description:
-      'Formulaire public d’admission en `multipart/form-data`. Les pièces jointes (`releveBac`, `attestationBac`, `releveL3`, `bordereau`, `demandeInscription`, `photoIdentite`, `acteEtatCivil`, `diplomeBac`, `attestationEtablissement`) sont stockées dans l’espace **privé** du bucket et ne sont téléchargeables qu’avec un jeton valide.\n\nLes emails (accusé de réception candidat et notification administrateurs) sont envoyés directement par le service SMTP.\n\n⚠️ Limitation de débit : 3 dépôts par heure et par IP.',
+      'Formulaire public d’admission en `multipart/form-data`. Le `releveBac` (relevé de notes BAC ou extrait de liste) est obligatoire, le `diplomeBac` est facultatif. Les pièces jointes (`releveBac`, `attestationBac`, `releveL3`, `bordereau`, `demandeInscription`, `photoIdentite`, `acteEtatCivil`, `diplomeBac`, `attestationEtablissement`) sont stockées dans l’espace **privé** du bucket et ne sont téléchargeables qu’avec un jeton valide.\n\nLes emails (accusé de réception candidat et notification administrateurs) sont envoyés directement par le service SMTP.\n\n⚠️ Limitation de débit : 3 dépôts par heure et par IP.',
   })
   @ApiConsumes('multipart/form-data', 'application/json')
   @ApiStandardResponse(undefined, { status: 201, description: 'Candidature enregistrée' })

@@ -1,6 +1,7 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
 import { IsString, IsArray, IsBoolean, IsOptional, IsIn, IsInt, MaxLength } from 'class-validator';
+import { IsValidEmailOptional } from '../../common/email/email.validators';
 
 export class CreateFormationDto {
   @IsString()
@@ -75,9 +76,7 @@ export class CreateFormationDto {
   @IsOptional()
   responsableId?: number;
 
-  @IsString()
-  @IsOptional()
-  @MaxLength(50)
+  @IsValidEmailOptional()
   email?: string;
 
   @IsString()

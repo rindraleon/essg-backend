@@ -15,7 +15,13 @@ import {
   IsValidPersonName,
   IsValidPlaceName,
 } from '../../common/validators/person.validators';
-import { ADMISSION_LEVELS, BAC_CATEGORIES, BAC_TYPES } from '../admission-rules.constant';
+import {
+  ADMISSION_GENRES,
+  ADMISSION_LEVELS,
+  ADMISSION_SOURCES,
+  BAC_CATEGORIES,
+  BAC_TYPES,
+} from '../admission-rules.constant';
 import { AdmissionStatus } from '../entities/admission.entity';
 
 export const ADMISSION_NIVEAUX = ADMISSION_LEVELS;
@@ -60,8 +66,8 @@ export class CreateAdmissionDto {
   nationalite!: string;
 
   @IsString()
-  @IsIn(['feminin', 'masculin', 'autre'])
-  sexe!: string;
+  @IsIn(ADMISSION_GENRES, { message: 'Le genre sélectionné est invalide.' })
+  genre!: string;
 
   @IsString()
   @Matches(ADDRESS_REGEX, {
@@ -159,6 +165,13 @@ export class CreateAdmissionDto {
   })
   @MaxLength(15)
   numeroBordereau?: string;
+
+  @IsString()
+  @IsIn(ADMISSION_SOURCES, {
+    message: "La source de reconnaissance de l'ESSG sélectionnée est invalide.",
+  })
+  @IsNotEmpty({ message: "Merci d'indiquer comment vous avez connu l'ESSG." })
+  sourceReconnaissance!: string;
 
   @IsOptional()
   @IsString()

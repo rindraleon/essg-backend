@@ -1,25 +1,25 @@
-import { MigrationInterface, QueryRunner, TableColumn, TableIndex } from 'typeorm';
+import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
 export class AddSlugToPartners1753200000000 implements MigrationInterface {
   name = 'AddSlugToPartners1753200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.addColumn(
-      'partners',
-      new TableColumn({
-        name: 'slug',
-        type: 'varchar',
-        length: '255',
-        isNullable: true,
-      }),
-    );
+    if (!(await queryRunner.hasTable('partners'))) return;
 
-    await queryRunner.createIndex(
-      'partners',
-      new TableIndex({
-        name: 'IDX_PARTNERS_SLUG',
-        columnNames: ['slug'],
-      }),
+    if (!(await queryRunner.hasColumn('partners', 'slug'))) {
+      await queryRunner.addColumn(
+        'partners',
+        new TableColumn({
+          name: 'slug',
+          type: 'varchar',
+          length: '255',
+          isNullable: true,
+        }),
+      );
+    }
+
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_PARTNERS_SLUG" ON "partners" ("slug")',
     );
 
     const partners = (await queryRunner.query(
@@ -45,7 +45,10 @@ export class AddSlugToPartners1753200000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex('partners', 'IDX_PARTNERS_SLUG');
-    await queryRunner.dropColumn('partners', 'slug');
+    if (!(await queryRunner.hasTable('partners'))) return;
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_PARTNERS_SLUG"');
+    if (await queryRunner.hasColumn('partners', 'slug')) {
+      await queryRunner.dropColumn('partners', 'slug');
+    }
   }
 }

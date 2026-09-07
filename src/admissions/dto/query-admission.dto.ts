@@ -17,7 +17,6 @@ export class QueryAdmissionDto extends PaginationQueryDto {
   @IsEnum(AdmissionStatus)
   statut?: AdmissionStatus;
 
-  /** Filtre sur l'année de dépôt de la candidature. */
   @IsOptional()
   @Type(() => Number)
   @IsInt()

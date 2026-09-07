@@ -20,14 +20,14 @@ export class CreateUtilisateurDto {
   motDePasse!: string;
 
   @IsValidPersonName(
-    'Le nom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.'
+    'Le nom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
   )
   @IsNotEmpty({ message: 'Le nom est obligatoire.' })
   @MaxLength(100)
   nom!: string;
 
   @IsValidPersonName(
-    'Le prénom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.'
+    'Le prénom ne peut contenir que des lettres, espaces, apostrophes ou traits d’union.',
   )
   @IsNotEmpty({ message: 'Le prénom est obligatoire.' })
   @MaxLength(100)
