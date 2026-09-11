@@ -104,7 +104,10 @@ export class PerformanceInterceptor implements NestInterceptor {
     try {
       return Buffer.byteLength(JSON.stringify(body));
     } catch (error) {
-      this.logger.warn('Échec dans estimateSize — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans estimateSize — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       return 0;
     }
   }

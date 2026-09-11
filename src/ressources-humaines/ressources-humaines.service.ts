@@ -118,11 +118,10 @@ export class RessourcesHumainesService {
   ): Promise<PaginatedData<RessourceHumaine>> {
     const { page = 1, limit = 10, sortBy, sortOrder = 'DESC' } = paginationDto;
     const skip = (page - 1) * limit;
-    const order = defaultOrder ?? { ordre: 'DESC', id: 'DESC' };
 
     const [data, total] = await this.repo.findAndCount({
       where,
-      order: sortBy ? { [sortBy]: sortOrder } : order,
+      order: sortBy ? { [sortBy]: sortOrder } : (defaultOrder ?? { ordre: 'DESC', id: 'DESC' }),
       skip,
       take: limit,
     });

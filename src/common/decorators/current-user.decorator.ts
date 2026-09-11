@@ -7,6 +7,7 @@ export interface AuthUser {
   prenom: string;
   nom: string;
   avatar?: string;
+  sessionId?: string;
 }
 
 interface RequestWithUser {

@@ -47,4 +47,27 @@ export const RATE_LIMITS = {
     message:
       'Trop de candidatures envoyées depuis cette connexion. Réessayez dans une heure ou contactez l’administration.',
   },
+  passwordResetRequest: {
+    scope: 'password-reset-request',
+    limit: 3,
+    windowSeconds: 900,
+    strategy: 'ip-email',
+    message:
+      'Trop de demandes de réinitialisation. Merci de patienter quelques minutes avant de réessayer.',
+  },
+  passwordResetValidate: {
+    scope: 'password-reset-validate',
+    limit: 10,
+    windowSeconds: 300,
+    strategy: 'ip',
+    message: 'Trop de vérifications de lien. Merci de patienter quelques minutes.',
+  },
+  passwordResetConfirm: {
+    scope: 'password-reset-confirm',
+    limit: 5,
+    windowSeconds: 900,
+    strategy: 'ip',
+    message:
+      'Trop de tentatives de réinitialisation. Demandez un nouveau lien dans quelques minutes.',
+  },
 } as const satisfies Record<string, RateLimitOptions>;

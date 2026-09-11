@@ -121,6 +121,14 @@ class EnvironmentVariables {
   @IsOptional()
   ADMIN_NOTIFY_EMAILS: string = '';
 
+  @IsOptional()
+  @IsString()
+  PASSWORD_MIN_LENGTH: string = '8';
+
+  @IsOptional()
+  @IsString()
+  EMAIL_LOGO_URL: string = 'https://essg-admin.itdcmada.com/Essg-logo.svg';
+
   @IsString()
   @IsOptional()
   BACK_OFFICE_URL: string = 'http://localhost:5000';

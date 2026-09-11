@@ -195,26 +195,64 @@ export class FormationsService {
     const updateData: Partial<Formation> = { ...dto };
     delete (updateData as { slug?: string }).slug;
 
-    if (dto.titre !== undefined || dto.mention !== undefined) {
-      const { titre, mention } = this.resolveHierarchy(
-        dto.titre ?? current.titre,
-        dto.mention ?? current.mention,
+    this.applyHierarchyUpdate(current, dto, updateData);
+    await this.updateSlug(id, current, updateData);
+    this.capitalizeUpdateFields(dto, updateData);
+    await this.applyResponsableUpdate(dto, updateData);
+    try {
+      await this.repo.update(id, updateData);
+    } catch (error) {
+      console.warn(
+        'Échec dans update — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
       );
-      updateData.titre = titre;
-      updateData.mention = mention;
-      if (!dto.domaine) {
-        updateData.domaine = [mention];
-      }
+      this.rethrowUnique(error);
     }
+    this.invalidateCache();
+    return this.findOne(id);
+  }
 
-    if (shouldRegenerateSlug(current.titre, updateData.titre, current.slug)) {
-      updateData.slug = await buildUniqueSlug(this.repo, updateData.titre ?? current.titre, {
-        excludeId: id,
-      });
-    }
+  private applyHierarchyUpdate(
+    current: Formation,
+    dto: UpdateFormationDto,
+    updateData: Partial<Formation>,
+  ): void {
+    if (dto.titre === undefined && dto.mention === undefined) return;
+    const { titre, mention } = this.resolveHierarchy(
+      dto.titre ?? current.titre,
+      dto.mention ?? current.mention,
+    );
+    updateData.titre = titre;
+    updateData.mention = mention;
+    if (!dto.domaine) updateData.domaine = [mention];
+  }
 
+  private async updateSlug(
+    id: number,
+    current: Formation,
+    updateData: Partial<Formation>,
+  ): Promise<void> {
+    if (!shouldRegenerateSlug(current.titre, updateData.titre, current.slug)) return;
+    updateData.slug = await buildUniqueSlug(this.repo, updateData.titre ?? current.titre, {
+      excludeId: id,
+    });
+  }
+
+  private capitalizeUpdateFields(dto: UpdateFormationDto, updateData: Partial<Formation>): void {
     if (dto.duree) updateData.duree = capitalize(dto.duree);
     if (dto.description) updateData.description = capitalize(dto.description);
+    if (dto.domaine) updateData.domaine = capitalizeArray(dto.domaine);
+    if (dto.objectifs) updateData.objectifs = capitalizeArray(dto.objectifs);
+    if (dto.debouches) updateData.debouches = capitalizeArray(dto.debouches);
+    if (dto.conditions) updateData.conditions = capitalizeArray(dto.conditions);
+    if (dto.competences) updateData.competences = capitalizeArray(dto.competences);
+    if (dto.programme) updateData.programme = capitalizeArray(dto.programme);
+  }
+
+  private async applyResponsableUpdate(
+    dto: UpdateFormationDto,
+    updateData: Partial<Formation>,
+  ): Promise<void> {
     const responsableInfo = await this.resolveResponsable(dto.responsableId);
     if (responsableInfo) {
       updateData.responsableId = responsableInfo.responsableId;
@@ -222,20 +260,6 @@ export class FormationsService {
     } else if (dto.responsable) {
       updateData.responsable = capitalize(dto.responsable);
     }
-    if (dto.domaine) updateData.domaine = capitalizeArray(dto.domaine);
-    if (dto.objectifs) updateData.objectifs = capitalizeArray(dto.objectifs);
-    if (dto.debouches) updateData.debouches = capitalizeArray(dto.debouches);
-    if (dto.conditions) updateData.conditions = capitalizeArray(dto.conditions);
-    if (dto.competences) updateData.competences = capitalizeArray(dto.competences);
-    if (dto.programme) updateData.programme = capitalizeArray(dto.programme);
-    try {
-      await this.repo.update(id, updateData);
-    } catch (error) {
-      console.warn('Échec dans update — poursuite en mode dégradé', error instanceof Error ? error.message : error);
-      this.rethrowUnique(error);
-    }
-    this.invalidateCache();
-    return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {

@@ -63,7 +63,10 @@ export class PresenceGateway implements OnGatewayConnection {
       await client.join(`user:${payload.sub}`);
       if (payload.role === 'admin') await client.join(ADMIN_ROOM);
     } catch (error) {
-      console.warn('Échec dans handleConnection — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      console.warn(
+        'Échec dans handleConnection — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       client.emit('auth:error', { message: 'Session invalide' });
       client.disconnect(true);
     }

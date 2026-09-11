@@ -126,7 +126,10 @@ export class HealthService {
         criticality: 'critical',
       };
     } catch (error) {
-      this.logger.warn('Échec dans checkStorage — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans checkStorage — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       return {
         status: 'down',
         responseTime: Date.now() - startedAt,

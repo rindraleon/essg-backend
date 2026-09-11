@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 
+/** Nom du cookie HttpOnly portant le refresh token (émis par le serveur uniquement). */
 export const REFRESH_COOKIE_NAME = 'refresh_token';
 
 export function readRefreshTokenFromCookie(cookieHeader: string | undefined): string | null {
@@ -13,7 +14,10 @@ export function readRefreshTokenFromCookie(cookieHeader: string | undefined): st
     try {
       return decodeURIComponent(value);
     } catch (error) {
-      console.warn('Échec dans readRefreshTokenFromCookie — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      console.warn(
+        'Échec dans readRefreshTokenFromCookie — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       return value;
     }
   }

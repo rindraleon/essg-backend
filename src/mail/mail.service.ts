@@ -22,6 +22,7 @@ import {
 } from './templates/message-receipt.template';
 import { renderMessageReplyTemplate } from './templates/message-reply.template';
 import { renderWelcomeTemplate } from './templates/welcome.template';
+import { renderPasswordResetTemplate } from './templates/password-reset.template';
 import {
   AdminAdmissionNotificationData,
   renderAdminAdmissionNotificationTemplate,
@@ -230,6 +231,28 @@ export class MailService implements OnModuleInit {
         email,
         motDePasse,
         siteUrl: this.appUrl,
+      }),
+    });
+  }
+
+  async sendPasswordResetEmail(
+    email: string,
+    prenom: string,
+    nom: string,
+    resetUrl: string,
+    expiresMinutes: number,
+  ): Promise<void> {
+    const siteUrl = this.backOfficeUrl.replace(/\/$/, '');
+    await this.sendEmail({
+      to: email,
+      subject: 'ESSG Admin — Réinitialisation de votre mot de passe',
+      html: renderPasswordResetTemplate({
+        prenom,
+        nom,
+        resetUrl,
+        expiresMinutes,
+        siteUrl,
+        logoUrl: this.readString('EMAIL_LOGO_URL', ''),
       }),
     });
   }

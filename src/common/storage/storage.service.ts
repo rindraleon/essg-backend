@@ -76,7 +76,10 @@ export class StorageService implements OnModuleInit {
       await this.client.bucketExists(this.defaultBucket);
       return true;
     } catch (error) {
-      this.logger.warn('Échec dans ping — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans ping — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       return false;
     }
   }
@@ -192,7 +195,10 @@ export class StorageService implements OnModuleInit {
       await measureAsync('storage', () => this.client.statObject(bucket, objectName));
       return true;
     } catch (error) {
-      this.logger.warn('Échec dans exists — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans exists — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       return false;
     }
   }
@@ -214,7 +220,10 @@ export class StorageService implements OnModuleInit {
         contentType,
       };
     } catch (error) {
-      this.logger.warn('Échec dans getMetadata — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans getMetadata — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       return null;
     }
   }
@@ -306,7 +315,10 @@ export class StorageService implements OnModuleInit {
       }
       return decodeURIComponent(segments.at(-1) ?? '');
     } catch (error) {
-      this.logger.warn('Échec dans extractObjectName — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans extractObjectName — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       const parts = cleaned.split('/').filter(Boolean);
       return decodeURIComponent(parts.at(-1) ?? '');
     }
@@ -359,7 +371,10 @@ export class StorageService implements OnModuleInit {
       original.host = publicBase.host;
       return original.toString();
     } catch (error) {
-      this.logger.warn('Échec dans rewritePresignedHost — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans rewritePresignedHost — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       return url;
     }
   }

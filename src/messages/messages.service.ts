@@ -50,7 +50,10 @@ export class MessagesService {
       const result = await this.emailValidation.validate(email, { probeMailbox: true });
       return { valide: result.valid, raison: result.reason };
     } catch (error) {
-      console.warn('Échec dans verifyEmail — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      console.warn(
+        'Échec dans verifyEmail — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       return { valide: true, raison: null };
     }
   }

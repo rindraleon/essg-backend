@@ -323,7 +323,10 @@ export class AdmissionDocumentVerificationService {
         const result = await this.extractAndRecord(fileEntity, cf.type, state);
         bordereauText += '\n' + result.text;
       } catch (e) {
-        this.logger.warn('Échec dans extractBordereauDocuments — poursuite en mode dégradé', e instanceof Error ? e.message : e);
+        this.logger.warn(
+          'Échec dans extractBordereauDocuments — poursuite en mode dégradé',
+          e instanceof Error ? e.message : e,
+        );
         const msg = e instanceof Error ? e.message : String(e);
         state.errors.push(`Bordereau illisible: ${msg}`);
         state.documents.push({
@@ -352,7 +355,10 @@ export class AdmissionDocumentVerificationService {
         const result = await this.extractAndRecord(f, f.type, state);
         combinedText += '\n' + result.text;
       } catch (e) {
-        this.logger.warn('Échec dans extractRemainingFiles — poursuite en mode dégradé', e instanceof Error ? e.message : e);
+        this.logger.warn(
+          'Échec dans extractRemainingFiles — poursuite en mode dégradé',
+          e instanceof Error ? e.message : e,
+        );
         const msg = e instanceof Error ? e.message : String(e);
         state.errors.push(`Fichier ${f.type} illisible: ${msg}`);
       }
@@ -388,7 +394,10 @@ export class AdmissionDocumentVerificationService {
           erreur: result.error || null,
         });
       } catch (e) {
-        this.logger.warn('Échec dans extractBordereauFallback — poursuite en mode dégradé', e instanceof Error ? e.message : e);
+        this.logger.warn(
+          'Échec dans extractBordereauFallback — poursuite en mode dégradé',
+          e instanceof Error ? e.message : e,
+        );
         const msg = e instanceof Error ? e.message : String(e);
         state.errors.push(`Bordereau illisible: ${msg}`);
       }
@@ -410,7 +419,10 @@ export class AdmissionDocumentVerificationService {
         .getMany();
       return all.map((a) => a.numeroBordereau).filter(Boolean) as string[];
     } catch (error) {
-      this.logger.warn('Échec dans loadExistingBordereaux — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans loadExistingBordereaux — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       // si échec requête, on continue sans unicité
       return [];
     }

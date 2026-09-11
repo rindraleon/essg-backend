@@ -10,12 +10,19 @@ import { UsersModule } from '../users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Utilisateur } from '../users/entities/user.entity';
 import { SessionsModule } from '../sessions/sessions.module';
+import { MailModule } from '../mail/mail.module';
+import { ActivityLogsModule } from '../activity-logs/activity-log.module';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { PasswordResetService } from './password-reset.service';
+import { PasswordController } from './password.controller';
 
 @Module({
   imports: [
     UsersModule,
     SessionsModule,
-    TypeOrmModule.forFeature([Utilisateur]),
+    MailModule,
+    ActivityLogsModule,
+    TypeOrmModule.forFeature([Utilisateur, PasswordResetToken]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -30,8 +37,8 @@ import { SessionsModule } from '../sessions/sessions.module';
       },
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  controllers: [AuthController, PasswordController],
+  providers: [AuthService, JwtStrategy, PasswordResetService],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

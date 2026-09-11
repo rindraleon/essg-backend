@@ -1,4 +1,3 @@
-
 const TIMEZONE = 'Indian/Antananarivo';
 const LOCALE = 'fr-FR';
 

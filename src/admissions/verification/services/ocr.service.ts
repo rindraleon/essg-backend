@@ -194,7 +194,10 @@ export class OcrService {
         .sharpen({ sigma: 1.2 })
         .toBuffer();
     } catch (error) {
-      this.logger.warn('Échec dans preprocessImage — poursuite en mode dégradé', error instanceof Error ? error.message : error);
+      this.logger.warn(
+        'Échec dans preprocessImage — poursuite en mode dégradé',
+        error instanceof Error ? error.message : error,
+      );
       // Pré-traitement impossible : on tente l'OCR sur l'image originale.
       return buffer;
     }
