@@ -6,6 +6,12 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+/** Valeur par défaut des colonnes simple-json en liste vide. */
+const EMPTY_ARRAY_DEFAULT = '[]';
+
+/** Type des colonnes JSON simples stockées en texte. */
+const SIMPLE_JSON = 'simple-json';
+
 @Entity('formations')
 export class Formation {
   @PrimaryGeneratedColumn()
@@ -17,7 +23,7 @@ export class Formation {
   @Column({ type: 'varchar', length: 150, nullable: true })
   mention!: string;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: SIMPLE_JSON, default: EMPTY_ARRAY_DEFAULT })
   domaine!: string[];
 
   @Column()
@@ -32,22 +38,22 @@ export class Formation {
   @Column({ type: 'text' })
   description!: string;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: SIMPLE_JSON, default: EMPTY_ARRAY_DEFAULT })
   objectifs!: string[];
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: SIMPLE_JSON, default: EMPTY_ARRAY_DEFAULT })
   debouches!: string[];
 
   @Column({ type: 'text', nullable: true })
   conditionsAcces!: string;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: SIMPLE_JSON, default: EMPTY_ARRAY_DEFAULT })
   conditions!: string[];
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: SIMPLE_JSON, default: EMPTY_ARRAY_DEFAULT })
   competences!: string[];
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: SIMPLE_JSON, default: EMPTY_ARRAY_DEFAULT })
   modules!: any[];
 
   @Column({ type: 'int', default: 180 })
@@ -62,7 +68,7 @@ export class Formation {
   @Column({ nullable: true })
   email!: string;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: SIMPLE_JSON, default: EMPTY_ARRAY_DEFAULT })
   programme!: string[];
 
   @Column({ default: '/images/hero-campus.jpg' })

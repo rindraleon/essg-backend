@@ -229,6 +229,7 @@ export class EmailValidationService {
         ? { status: 'valid', mxHost: domain }
         : { status: 'no_mx', mxHost: null };
     } catch (error) {
+      this.logger.warn('Échec dans lookupDomain — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       const code = (error as NodeJS.ErrnoException).code;
       if (code === 'ENOTFOUND' || code === 'NXDOMAIN') {
         return { status: 'domain_not_found', mxHost: null };
@@ -247,7 +248,8 @@ export class EmailValidationService {
     let status: EmailCheckStatus;
     try {
       status = await this.withTimeout(this.runSmtpDialog(email, mxHost), SMTP_TIMEOUT_MS + 1000);
-    } catch {
+    } catch (error) {
+      this.logger.warn('Échec dans probeMailbox — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       status = 'unknown';
     }
 

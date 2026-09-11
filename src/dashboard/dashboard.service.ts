@@ -11,6 +11,7 @@ import { Admission } from '../admissions/entities/admission.entity';
 import { Message } from '../messages/entities/message.entity';
 import { CacheService } from '../infrastructure/cache/cache.service';
 import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
+import { formatDateLong } from '../common/utils/french-date.util';
 
 export interface DashboardStats {
   totalUsers: number;
@@ -177,6 +178,6 @@ export class DashboardService {
     if (minutes < 60) return `Il y a ${minutes} min`;
     if (hours < 24) return `Il y a ${hours} heure${hours > 1 ? 's' : ''}`;
     if (days < 7) return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
-    return new Date(date).toLocaleDateString('fr-FR');
+    return formatDateLong(date);
   }
 }

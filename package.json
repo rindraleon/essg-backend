@@ -44,11 +44,13 @@
     "nodemailer": "^9.0.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.35.3",
     "socket.io": "^4.8.3",
+    "tesseract.js": "^7.0.0",
     "typeorm": "^0.3.27"
   },
   "devDependencies": {

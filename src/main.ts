@@ -13,11 +13,18 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { createValidationException } from './common/utils/validation-messages';
+import { API_BEARER_AUTH_NAME } from './common/swagger/swagger.constants';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  // ESSG-INFO-01 : ne pas divulguer la technologie serveur via l'en-tête X-Powered-By.
+  const httpServer = app.getHttpAdapter().getInstance() as {
+    disable?: (setting: string) => void;
+  };
+  httpServer.disable?.('x-powered-by');
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -77,7 +84,7 @@ async function bootstrap(): Promise<void> {
         description:
           'Collez ici le jeton renvoyé par `POST /auth/login` (champ `data.accessToken`).',
       },
-      'access-token',
+      API_BEARER_AUTH_NAME,
     );
 
   const document = SwaggerModule.createDocument(app, swaggerBuilder.build(), {

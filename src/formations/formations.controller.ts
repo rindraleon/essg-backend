@@ -24,6 +24,10 @@ import {
   ApiStandardErrors,
   ApiStandardResponse,
 } from '../common/swagger/api-response.decorator';
+import {
+  API_BEARER_AUTH_NAME,
+  SWAGGER_OPERATION_SUCCESS,
+} from '../common/swagger/swagger.constants';
 
 @ApiTags('Formations')
 @Controller('formations')
@@ -48,7 +52,7 @@ export class FormationsController {
     description:
       'Référentiel statique des mentions de formation (utilisé par les listes déroulantes du Back-Office).',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false })
   @ApiMessage('Mentions récupérées')
   findMentions() {
@@ -72,7 +76,7 @@ export class FormationsController {
     summary: 'Consulter une formation par slug',
     description: 'Utilisé par le site vitrine.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false, notFound: true })
   @ApiMessage('Formation récupérée')
   findBySlug(@Param('slug') slug: string) {
@@ -84,7 +88,7 @@ export class FormationsController {
     summary: 'Consulter une formation',
     description: "Détail complet d'une formation.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false, notFound: true })
   @ApiMessage('Formation récupérée')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -94,7 +98,7 @@ export class FormationsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Créer une formation',
     description:
@@ -109,12 +113,12 @@ export class FormationsController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Mettre à jour une formation',
     description: "Mise à jour d'une formation existante.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true, conflict: true })
   @ApiMessage('Formation mise à jour')
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateFormationDto) {
@@ -123,12 +127,12 @@ export class FormationsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Supprimer une formation',
     description: 'Suppression définitive de la formation.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Formation supprimée')
   remove(@Param('id', ParseIntPipe) id: number) {

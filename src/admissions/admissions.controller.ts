@@ -36,6 +36,10 @@ import {
   ApiStandardErrors,
   ApiStandardResponse,
 } from '../common/swagger/api-response.decorator';
+import {
+  API_BEARER_AUTH_NAME,
+  SWAGGER_OPERATION_SUCCESS,
+} from '../common/swagger/swagger.constants';
 
 interface AdmissionFiles {
   releveBac?: Express.Multer.File[];
@@ -169,9 +173,9 @@ export class AdmissionsController {
   @ApiOperation({
     summary: 'Vérifier un doublon de candidature',
     description:
-      'Contrôle si une candidature existe déjà pour ce numéro de bordereau, ou si l’email/le téléphone a déjà été utilisé pour l’année d’admission en cours (une seule candidature autorisée par an). Le numéro d’inscription au baccalauréat n’est plus un critère de détection des doublons.',
+      'Contrôle l’unicité du numéro de bordereau de versement (seule contrainte d’unicité conservée). Les vérifications par email et téléphone ne bloquent plus la création de candidature : un même candidat peut déposer plusieurs candidatures avec le même email/téléphone. Le numéro de bordereau doit rester unique sur l’ensemble des candidatures (contrainte DB).',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false })
   @ApiMessage('Vérification des doublons effectuée')
   checkDuplicate(
@@ -188,7 +192,7 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Lister les candidatures',
     description: 'Liste paginée et filtrable des candidatures reçues.',
@@ -202,7 +206,7 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('search')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Rechercher une candidature',
     description: "Recherche sur le nom, l'email et le téléphone.",
@@ -216,7 +220,7 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/documents/:kind')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Télécharger un document de candidature',
     description:
@@ -253,12 +257,12 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/files')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: "Lister les fichiers d'une candidature",
     description: 'Métadonnées des pièces jointes (nom, type, taille).',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Fichiers de la candidature récupérés')
   getFiles(@Param('id', ParseIntPipe) id: number) {
@@ -267,7 +271,7 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/files/:fileId')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Télécharger une pièce jointe',
     description:
@@ -304,12 +308,12 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id/files/:fileId')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Supprimer un fichier de candidature',
     description: 'Supprime la pièce jointe du stockage privé et de la base.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Fichier supprimé')
   removeFile(@Param('id', ParseIntPipe) id: number, @Param('fileId', ParseIntPipe) fileId: number) {
@@ -318,12 +322,12 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Consulter une candidature',
     description: 'Dossier complet du candidat.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Candidature récupérée')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -332,13 +336,13 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/status')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: "Mettre à jour le statut d'une candidature",
     description:
       'Accepte, refuse ou remet en attente une candidature (notification email éventuelle).',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true, conflict: true })
   @ApiMessage('Statut de la candidature mis à jour')
   updateStatus(
@@ -350,12 +354,12 @@ export class AdmissionsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Supprimer une candidature',
     description: 'Suppression définitive du dossier et de ses pièces jointes.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Candidature supprimée')
   remove(@Param('id', ParseIntPipe) id: number) {

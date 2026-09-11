@@ -7,9 +7,18 @@ import {
   Post,
   Req,
   Request,
+  Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import type { Request as ExpressRequest } from 'express';
+import { ConfigService } from '@nestjs/config';
+import type { Request as ExpressRequest, Response } from 'express';
+import { REFRESH_TOKEN_TTL_MS } from '../sessions/sessions.constants';
+import {
+  clearRefreshTokenCookie,
+  readRefreshTokenFromCookie,
+  setRefreshTokenCookie,
+} from './auth-cookie.util';
 import { RateLimit, RATE_LIMITS } from '../infrastructure/rate-limit/rate-limit.decorator';
 import { RateLimitGuard } from '../infrastructure/rate-limit/rate-limit.guard';
 import { ApiMessage } from '../common/decorators/api-message.decorator';
@@ -21,6 +30,7 @@ import { ApiStandardErrors, ApiStandardResponse } from '../common/swagger/api-re
 import { SessionsService } from '../sessions/sessions.service';
 import { toSessionView } from '../sessions/session.mapper';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { SWAGGER_OPERATION_SUCCESS } from '../common/swagger/swagger.constants';
 
 const OK_DESCRIPTION = 'Operation effectuee avec succes';
 const ACCESS_TOKEN_AUTH = 'access-token';
@@ -45,7 +55,14 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly sessionsService: SessionsService,
+    private readonly configService: ConfigService,
   ) {}
+
+  /** Le cookie de refresh token n'est `Secure` que si l'API est servie en HTTPS. */
+  private isSecureCookie(): boolean {
+    const appUrl = this.configService.get<string>('APP_URL', 'http://localhost:3000');
+    return appUrl.startsWith('https://');
+  }
 
   @Post('login')
   @UseGuards(RateLimitGuard)
@@ -55,11 +72,17 @@ export class AuthController {
     description:
       "Authentifie un utilisateur du Back-Office et renvoie un jeton JWT (`data.accessToken`) à placer dans l'en-tête `Authorization: Bearer <token>`.\n\n⚠️ Limitation de débit : 10 tentatives par tranche de 5 minutes et par couple IP + email (`429` au-delà, en-tête `Retry-After`).",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false })
   @ApiMessage('Connexion réussie')
-  async login(@Body() dto: LoginDto, @Req() req: ExpressRequest) {
-    return this.authService.login(dto.email, dto.password, readClientContext(req));
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const payload = await this.authService.login(dto.email, dto.password, readClientContext(req));
+    setRefreshTokenCookie(res, payload.refreshToken, REFRESH_TOKEN_TTL_MS, this.isSecureCookie());
+    return payload;
   }
 
   @Post('refresh')
@@ -68,13 +91,23 @@ export class AuthController {
   @ApiOperation({
     summary: "Renouveler le jeton d'acces",
     description:
-      'Echange un refresh token contre un nouveau couple de jetons. Le refresh consomme est invalide (rotation).',
+      'Echange un refresh token contre un nouveau couple de jetons. Le refresh consomme est invalide (rotation). Le jeton peut être fourni dans le corps de requête ou via le cookie HttpOnly `refresh_token`.',
   })
   @ApiStandardResponse(undefined, { description: OK_DESCRIPTION })
   @ApiStandardErrors({ auth: false })
   @ApiMessage('Jeton renouvele')
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refresh(dto.refreshToken);
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = dto.refreshToken ?? readRefreshTokenFromCookie(req.headers.cookie);
+    if (!refreshToken) {
+      throw new UnauthorizedException('Le refresh token est requis.');
+    }
+    const payload = await this.authService.refresh(refreshToken);
+    setRefreshTokenCookie(res, payload.refreshToken, REFRESH_TOKEN_TTL_MS, this.isSecureCookie());
+    return payload;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -84,7 +117,7 @@ export class AuthController {
     summary: 'Vérifier la session',
     description: 'Indique si le jeton fourni est encore valide.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true })
   @ApiMessage('Session valide')
   verify(@Request() req: { user: AuthUser }) {
@@ -98,7 +131,7 @@ export class AuthController {
     summary: 'Profil de la session courante',
     description: "Renvoie l'identité portée par le jeton JWT.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true })
   @ApiMessage('Profil récupéré')
   me(@Request() req: { user: AuthUser }) {
@@ -115,7 +148,8 @@ export class AuthController {
   @ApiStandardResponse(undefined, { description: OK_DESCRIPTION })
   @ApiStandardErrors({ auth: true })
   @ApiMessage('Deconnexion reussie')
-  async logout(@Request() req: { user: AuthUser }) {
+  async logout(@Request() req: { user: AuthUser }, @Res({ passthrough: true }) res: Response) {
+    clearRefreshTokenCookie(res, this.isSecureCookie());
     return this.authService.logout(req.user.userId, req.user.sessionId);
   }
 

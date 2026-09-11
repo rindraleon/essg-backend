@@ -17,13 +17,14 @@ import {
   API_VERSION_HEADER,
 } from '../constants/api.constants';
 import { ApiResponse, PaginatedData } from '../interfaces/api-response.interface';
+import { SWAGGER_OPERATION_SUCCESS } from '../swagger/swagger.constants';
 
 function defaultMessage(statusCode: number): string {
   switch (statusCode as HttpStatus) {
     case HttpStatus.CREATED:
       return 'Ressource créée avec succès';
     case HttpStatus.NO_CONTENT:
-      return 'Opération effectuée avec succès';
+      return SWAGGER_OPERATION_SUCCESS;
     default:
       return 'Données récupérées avec succès';
   }

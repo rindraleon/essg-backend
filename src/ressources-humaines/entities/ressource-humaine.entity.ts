@@ -1,5 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
+/** Valeur par défaut jsonb des colonnes en liste vide. */
+const EMPTY_JSONB_ARRAY_DEFAULT = "'[]'::jsonb";
+
 export interface ExperienceProfessionnelle {
   poste: string;
   organisation?: string;
@@ -35,19 +38,19 @@ export class RessourceHumaine {
   @Column({ type: 'text', nullable: true })
   adresse?: string;
 
-  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  @Column({ type: 'jsonb', default: () => EMPTY_JSONB_ARRAY_DEFAULT })
   experiences!: ExperienceProfessionnelle[];
 
-  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  @Column({ type: 'jsonb', default: () => EMPTY_JSONB_ARRAY_DEFAULT })
   formations!: string[];
 
-  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  @Column({ type: 'jsonb', default: () => EMPTY_JSONB_ARRAY_DEFAULT })
   diplomes!: string[];
 
-  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  @Column({ type: 'jsonb', default: () => EMPTY_JSONB_ARRAY_DEFAULT })
   competences!: string[];
 
-  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  @Column({ type: 'jsonb', default: () => EMPTY_JSONB_ARRAY_DEFAULT })
   langues!: string[];
 
   @Column({ nullable: true })

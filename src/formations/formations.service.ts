@@ -231,6 +231,7 @@ export class FormationsService {
     try {
       await this.repo.update(id, updateData);
     } catch (error) {
+      console.warn('Échec dans update — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       this.rethrowUnique(error);
     }
     this.invalidateCache();

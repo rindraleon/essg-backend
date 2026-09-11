@@ -39,7 +39,7 @@ export class PresenceGateway implements OnGatewayConnection {
   private readonly logger = new Logger(PresenceGateway.name);
 
   @WebSocketServer()
-  server: Server;
+  server: Server | undefined;
 
   constructor(
     private readonly jwtService: JwtService,
@@ -62,7 +62,8 @@ export class PresenceGateway implements OnGatewayConnection {
       client.data.sessionId = payload.sid;
       await client.join(`user:${payload.sub}`);
       if (payload.role === 'admin') await client.join(ADMIN_ROOM);
-    } catch {
+    } catch (error) {
+      console.warn('Échec dans handleConnection — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       client.emit('auth:error', { message: 'Session invalide' });
       client.disconnect(true);
     }

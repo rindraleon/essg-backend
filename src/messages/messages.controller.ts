@@ -27,6 +27,10 @@ import {
   ApiStandardErrors,
   ApiStandardResponse,
 } from '../common/swagger/api-response.decorator';
+import {
+  API_BEARER_AUTH_NAME,
+  SWAGGER_OPERATION_SUCCESS,
+} from '../common/swagger/swagger.constants';
 
 @ApiTags('Messages de contact')
 @Controller('messages')
@@ -35,7 +39,7 @@ export class MessagesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Lister les messages',
     description: 'Boîte de réception du Back-Office (filtrable et paginée).',
@@ -52,7 +56,7 @@ export class MessagesController {
 
   @UseGuards(JwtAuthGuard)
   @Get('search')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Rechercher un message',
     description: "Recherche sur l'expéditeur, le sujet et le contenu.",
@@ -81,12 +85,12 @@ export class MessagesController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Consulter un message',
     description: "Détail d'un message et de sa réponse éventuelle.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Message récupéré')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -111,12 +115,12 @@ export class MessagesController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/reply')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Répondre à un message',
     description: "Envoie la réponse par email et archive l'échange.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Réponse envoyée')
   reply(
@@ -129,12 +133,12 @@ export class MessagesController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Mettre à jour un message',
     description: 'Permet notamment de marquer un message comme lu ou traité.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true, conflict: true })
   @ApiMessage('Message mis à jour')
   update(
@@ -147,12 +151,12 @@ export class MessagesController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Supprimer un message',
     description: 'Suppression définitive du message.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Message supprimé')
   remove(@Param('id', ParseIntPipe) id: number) {

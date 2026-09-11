@@ -75,7 +75,8 @@ export class StorageService implements OnModuleInit {
     try {
       await this.client.bucketExists(this.defaultBucket);
       return true;
-    } catch {
+    } catch (error) {
+      this.logger.warn('Échec dans ping — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       return false;
     }
   }
@@ -190,7 +191,8 @@ export class StorageService implements OnModuleInit {
     try {
       await measureAsync('storage', () => this.client.statObject(bucket, objectName));
       return true;
-    } catch {
+    } catch (error) {
+      this.logger.warn('Échec dans exists — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       return false;
     }
   }
@@ -211,7 +213,8 @@ export class StorageService implements OnModuleInit {
         lastModified: objectStat.lastModified,
         contentType,
       };
-    } catch {
+    } catch (error) {
+      this.logger.warn('Échec dans getMetadata — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       return null;
     }
   }
@@ -302,7 +305,8 @@ export class StorageService implements OnModuleInit {
         return decodeURIComponent(segments.slice(uploadsIndex + 1).join('/'));
       }
       return decodeURIComponent(segments.at(-1) ?? '');
-    } catch {
+    } catch (error) {
+      this.logger.warn('Échec dans extractObjectName — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       const parts = cleaned.split('/').filter(Boolean);
       return decodeURIComponent(parts.at(-1) ?? '');
     }
@@ -354,7 +358,8 @@ export class StorageService implements OnModuleInit {
       original.protocol = publicBase.protocol;
       original.host = publicBase.host;
       return original.toString();
-    } catch {
+    } catch (error) {
+      this.logger.warn('Échec dans rewritePresignedHost — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       return url;
     }
   }

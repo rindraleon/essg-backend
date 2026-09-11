@@ -1,4 +1,4 @@
-import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { AdmissionFile } from './admission-file.entity';
 
 export enum AdmissionStatus {
@@ -9,8 +9,6 @@ export enum AdmissionStatus {
 }
 
 @Entity('admissions')
-@Unique('UQ_admissions_annee_email', ['annee', 'email'])
-@Unique('UQ_admissions_annee_telephone', ['annee', 'telephone'])
 export class Admission {
   @PrimaryGeneratedColumn()
   id!: number;

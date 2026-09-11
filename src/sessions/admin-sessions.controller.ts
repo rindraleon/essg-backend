@@ -19,6 +19,7 @@ import { PresenceService } from './presence.service';
 import { SessionsService } from './sessions.service';
 import { toSessionView } from './session.mapper';
 import { SessionEventsService } from './session-events.service';
+import { API_BEARER_AUTH_NAME } from '../common/swagger/swagger.constants';
 
 interface AuthUser {
   userId: number;
@@ -26,7 +27,7 @@ interface AuthUser {
 }
 
 @ApiTags('Sessions (administration)')
-@ApiBearerAuth('access-token')
+@ApiBearerAuth(API_BEARER_AUTH_NAME)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 @Controller('admin/users')

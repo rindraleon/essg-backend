@@ -103,7 +103,8 @@ export class PerformanceInterceptor implements NestInterceptor {
     if (typeof body === 'string') return Buffer.byteLength(body);
     try {
       return Buffer.byteLength(JSON.stringify(body));
-    } catch {
+    } catch (error) {
+      this.logger.warn('Échec dans estimateSize — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       return 0;
     }
   }

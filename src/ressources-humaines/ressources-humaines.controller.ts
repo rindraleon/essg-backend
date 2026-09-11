@@ -26,6 +26,10 @@ import {
   ApiStandardErrors,
   ApiStandardResponse,
 } from '../common/swagger/api-response.decorator';
+import {
+  API_BEARER_AUTH_NAME,
+  SWAGGER_OPERATION_SUCCESS,
+} from '../common/swagger/swagger.constants';
 
 @ApiTags('Ressources humaines')
 @Controller('ressources-humaines')
@@ -61,7 +65,7 @@ export class RessourcesHumainesController {
     summary: 'Consulter un membre par slug',
     description: 'Utilisé par le site vitrine.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false, notFound: true })
   @ApiMessage('Ressource humaine récupérée')
   findBySlug(@Param('slug') slug: string) {
@@ -73,7 +77,7 @@ export class RessourcesHumainesController {
     summary: 'Consulter un membre',
     description: "Détail complet d'un membre de l'équipe.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false, notFound: true })
   @ApiMessage('Ressource humaine récupérée')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -83,7 +87,7 @@ export class RessourcesHumainesController {
   @UseGuards(JwtAuthGuard)
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Ajouter un membre',
     description:
@@ -98,12 +102,12 @@ export class RessourcesHumainesController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Mettre à jour un membre',
     description: "Mise à jour d'une fiche existante.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true, conflict: true })
   @ApiMessage('Ressource humaine mise à jour')
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRessourceHumaineDto) {
@@ -112,12 +116,12 @@ export class RessourcesHumainesController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Supprimer un membre',
     description: 'Suppression définitive de la fiche.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Ressource humaine supprimée')
   remove(@Param('id', ParseIntPipe) id: number) {

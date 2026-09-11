@@ -32,6 +32,7 @@ import {
 } from './templates/admin-contact-notification.template';
 import { htmlToText, MAIL_ERROR, toMailHttpException } from './mail.errors';
 import { checkEmailSyntax } from '../common/email/email-format.util';
+import { formatDateLong } from '../common/utils/french-date.util';
 
 export interface SendEmailOptions {
   to: string;
@@ -179,7 +180,7 @@ export class MailService implements OnModuleInit {
       formation,
       reference,
       ...details,
-      date: new Date().toLocaleDateString('fr-FR'),
+      date: formatDateLong(new Date()),
       siteUrl: this.appUrl,
     };
 

@@ -57,6 +57,7 @@ export class ActivityLogService {
         await this.repo.delete(ids);
       }
     } catch (error) {
+      console.warn('Échec dans pruneIfNeeded — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       this.purgeLogger.warn(
         `Purge de l'historique impossible : ${error instanceof Error ? error.message : String(error)}`,
       );

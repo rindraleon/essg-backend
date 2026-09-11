@@ -23,9 +23,10 @@ import {
 } from '../common/swagger/api-response.decorator';
 import { PresignUploadDto } from './dto/presign-upload.dto';
 import { UploadService } from './upload.service';
+import { API_BEARER_AUTH_NAME } from '../common/swagger/swagger.constants';
 
 @ApiTags('Upload & médias')
-@ApiBearerAuth('access-token')
+@ApiBearerAuth(API_BEARER_AUTH_NAME)
 @Controller('upload')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}

@@ -15,6 +15,7 @@ import { normalizePhoneNumber } from '../common/utils/contact.util';
 import { EmailGuardService } from '../common/email/email-guard.service';
 import { EmailValidationService } from '../common/email/email-validation.service';
 import { checkEmailSyntax } from '../common/email/email-format.util';
+import { formatDateTimeLong } from '../common/utils/french-date.util';
 
 const MESSAGE_SORT_FIELDS = [
   'id',
@@ -48,7 +49,8 @@ export class MessagesService {
     try {
       const result = await this.emailValidation.validate(email, { probeMailbox: true });
       return { valide: result.valid, raison: result.reason };
-    } catch {
+    } catch (error) {
+      console.warn('Échec dans verifyEmail — poursuite en mode dégradé', error instanceof Error ? error.message : error);
       return { valide: true, raison: null };
     }
   }
@@ -145,13 +147,7 @@ export class MessagesService {
       telephone: saved.telephone ?? undefined,
       sujet: saved.sujet,
       message: saved.message,
-      date: new Date().toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      date: formatDateTimeLong(new Date()),
     });
 
     return saved;

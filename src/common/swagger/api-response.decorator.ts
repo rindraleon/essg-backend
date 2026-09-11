@@ -2,6 +2,7 @@ import { applyDecorators, HttpStatus, Type } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
 import { API_SIGNATURE } from '../constants/api.constants';
 import { ApiErrorResponseDto, ApiSuccessResponseDto, PaginationMetaDto } from './api-response.dto';
+import { SWAGGER_OPERATION_SUCCESS } from './swagger.constants';
 
 interface StandardResponseOptions {
   status?: HttpStatus | number;
@@ -39,7 +40,7 @@ export const ApiStandardResponse = (
             required: ['statusCode', 'message', 'data', 'signature', 'timestamp'],
             properties: {
               statusCode: { type: 'number', example: status },
-              message: { type: 'string', example: 'Opération effectuée avec succès' },
+              message: { type: 'string', example: SWAGGER_OPERATION_SUCCESS },
               data: dataSchema(model, isArray),
               ...(paginated ? { meta: { $ref: getSchemaPath(PaginationMetaDto) } } : {}),
               signature: {

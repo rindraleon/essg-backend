@@ -12,9 +12,13 @@ import {
   ApiStandardErrors,
   ApiStandardResponse,
 } from '../common/swagger/api-response.decorator';
+import {
+  API_BEARER_AUTH_NAME,
+  SWAGGER_OPERATION_SUCCESS,
+} from '../common/swagger/swagger.constants';
 
 @ApiTags('Journal d’activité')
-@ApiBearerAuth('access-token')
+@ApiBearerAuth(API_BEARER_AUTH_NAME)
 @Controller('activity-logs')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -39,7 +43,7 @@ export class ActivityLogController {
     summary: 'Consulter une action journalisée',
     description: "Détail d'une entrée du journal.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Action récupérée')
   findOne(@Param('id', ParseIntPipe) id: number) {

@@ -31,6 +31,7 @@ import {
 } from '../common/swagger/api-response.decorator';
 import { CreatePartenaireDto, UpdatePartenaireDto } from './dto/create-partner.dto';
 import { PartnersService } from './partners.service';
+import { API_BEARER_AUTH_NAME } from '../common/swagger/swagger.constants';
 
 @ApiTags('Partenaires')
 @Controller('partners')
@@ -96,7 +97,7 @@ export class PartnersController {
     return this.service.findOne(id);
   }
 
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @UseGuards(JwtAuthGuard)
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -121,7 +122,7 @@ export class PartnersController {
     return this.service.create(dto);
   }
 
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @UseGuards(JwtAuthGuard)
   @Put(':id')
   @ApiOperation({
@@ -152,7 +153,7 @@ export class PartnersController {
     return this.service.update(id, dto);
   }
 
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @ApiOperation({

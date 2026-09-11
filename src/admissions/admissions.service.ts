@@ -16,12 +16,9 @@ import { detectFileType, withDetectedExtension } from '../common/utils/file-type
 import { EmailGuardService } from '../common/email/email-guard.service';
 import { EmailNotificationService } from '../infrastructure/email/email-notification.service';
 import { SettingsService } from '../settings/settings.service';
-import {
-  normalizeEmail,
-  normalizePhoneNumber,
-  phoneComparisonKey,
-} from '../common/utils/contact.util';
+import { normalizeEmail, normalizePhoneNumber } from '../common/utils/contact.util';
 import { capitalize, capitalizeWords, toUpperCase } from '../common/utils/text.util';
+import { formatDateLong } from '../common/utils/french-date.util';
 import { isAdmissionProgramEligible, resolveBacCategory } from './admission-rules.constant';
 import { CreateAdmissionDto } from './dto/create-admission.dto';
 import { QueryAdmissionDto } from './dto/query-admission.dto';
@@ -140,6 +137,9 @@ export class AdmissionsService {
     telephoneDisponible?: boolean;
     annee?: number;
   }> {
+    // Seule l'unicité du bordereau est conservée. Email et téléphone ne bloquent plus la candidature.
+    // On conserve les champs emailDisponible/telephoneDisponible pour compatibilité ascendante,
+    // mais ils retournent toujours true (disponible).
     const result: {
       numeroBordereauDisponible?: boolean;
       emailDisponible?: boolean;
@@ -155,84 +155,44 @@ export class AdmissionsService {
       result.numeroBordereauDisponible = !found;
     }
 
-    const email = normalizeEmail(dto.email);
-    const telephone = normalizePhoneNumber(dto.telephone);
-    if (email || telephone) {
-      const annee = getCurrentAdmissionYear();
-      result.annee = annee;
-      if (email) {
-        const found = await this.admissionsRepository.findOne({
-          where: { annee, email },
-        });
-        result.emailDisponible = !found;
-      }
-      const phoneKey = phoneComparisonKey(telephone);
-      if (phoneKey) {
-        const found = await this.admissionsRepository
-          .createQueryBuilder('admission')
-          .where('admission.annee = :annee', { annee })
-          .andWhere('RIGHT(admission.telephone, 9) = :phoneKey', { phoneKey })
-          .getOne();
-        result.telephoneDisponible = !found;
-      }
+    // Compatibilité : l'appelant peut encore interroger email/téléphone, mais on ne considère plus
+    // cela comme bloquant. On retourne disponible = true pour ne pas déclencher d'erreur front.
+    if (dto.email !== undefined) result.emailDisponible = true;
+    if (dto.telephone !== undefined) result.telephoneDisponible = true;
+    if (dto.email || dto.telephone) {
+      result.annee = getCurrentAdmissionYear();
     }
 
     return result;
   }
 
-  private async assertNoAnnualDuplicate(
-    email: string,
-    telephone?: string,
-    annee = getCurrentAdmissionYear(),
-    excludeId?: number,
-  ): Promise<void> {
-    const normalizedEmail = normalizeEmail(email);
-    if (normalizedEmail) {
-      const found = await this.admissionsRepository.findOne({
-        where: { annee, email: normalizedEmail },
-        select: ['id'],
-      });
-      if (found && found.id !== excludeId) {
-        throw new ConflictException(
-          `Une demande d'admission avec l'adresse email « ${normalizedEmail} » a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
-        );
-      }
-    }
-
-    const normalizedTelephone = normalizePhoneNumber(telephone);
-    const phoneKey = phoneComparisonKey(normalizedTelephone);
-    if (phoneKey) {
-      const found = await this.admissionsRepository
-        .createQueryBuilder('admission')
-        .where('admission.annee = :annee', { annee })
-        .andWhere('RIGHT(admission.telephone, 9) = :phoneKey', { phoneKey })
-        .getOne();
-      if (found && found.id !== excludeId) {
-        throw new ConflictException(
-          `Une demande d'admission avec le numéro de téléphone « ${normalizedTelephone} » a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
-        );
-      }
-    }
-  }
-
-  private mapAnnualUniqueViolation(error: unknown, annee: number): void {
+  private mapBordereauUniqueViolation(error: unknown): void {
     const pgError = error as {
       code?: string;
       constraint?: string;
-      driverError?: { code?: string };
+      detail?: string;
+      driverError?: { code?: string; constraint?: string; detail?: string };
     };
     const code = pgError?.code ?? pgError?.driverError?.code;
+    const constraint = pgError?.constraint ?? pgError?.driverError?.constraint ?? '';
+    const detail = pgError?.detail ?? pgError?.driverError?.detail ?? '';
     if (code !== '23505') return;
-    const constraint = pgError?.constraint ?? '';
-    if (constraint === 'UQ_admissions_annee_email') {
-      throw new ConflictException(
-        `Une demande d'admission avec cette adresse email a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
-      );
+    const lowerConstraint = constraint.toLowerCase();
+    const lowerDetail = detail.toLowerCase();
+    if (
+      lowerConstraint.includes('bordereau') ||
+      lowerConstraint.includes('numerobordereau') ||
+      lowerDetail.includes('numerobordereau') ||
+      lowerDetail.includes('bordereau')
+    ) {
+      throw new ConflictException('Ce numéro de bordereau de versement est déjà utilisé.');
     }
-    if (constraint === 'UQ_admissions_annee_telephone') {
-      throw new ConflictException(
-        `Une demande d'admission avec ce numéro de téléphone a déjà été déposée pour l'année ${annee}. Une seule candidature est autorisée par an.`,
-      );
+    // Fallback: toute violation d'unicité restante est liée au bordereau (seule contrainte restante)
+    if (
+      constraint.startsWith('IDX_admissions_numeroBordereau') ||
+      constraint === 'UQ_admissions_numeroBordereau'
+    ) {
+      throw new ConflictException('Ce numéro de bordereau de versement est déjà utilisé.');
     }
   }
 
@@ -330,11 +290,6 @@ export class AdmissionsService {
     await this.assertNoDuplicate(createAdmissionDto.numeroBordereau);
 
     const annee = getCurrentAdmissionYear();
-    await this.assertNoAnnualDuplicate(
-      createAdmissionDto.email,
-      createAdmissionDto.telephone,
-      annee,
-    );
 
     Object.entries(uploadedFiles).forEach(([key, file]) => {
       this.validateFile(file, key as AdmissionFileType);
@@ -375,7 +330,7 @@ export class AdmissionsService {
     try {
       saved = await this.admissionsRepository.save(admission);
     } catch (error) {
-      this.mapAnnualUniqueViolation(error, annee);
+      this.mapBordereauUniqueViolation(error);
       throw error;
     }
 
@@ -626,7 +581,7 @@ export class AdmissionsService {
       formation: admission.formation,
       reference: this.buildReference(admission.id),
       statut: admission.statut,
-      date: new Date().toLocaleDateString('fr-FR'),
+      date: formatDateLong(new Date()),
       commentaire: admission.commentaire || undefined,
       reponseDate: admission.reponseDate || undefined,
       reponseHeure: admission.reponseHeure || undefined,

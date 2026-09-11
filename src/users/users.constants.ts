@@ -15,7 +15,7 @@ export interface DefaultAdminCredentials {
   role: UserRole;
 }
 
-const FALLBACK_ADMIN_EMAIL = 'admin@essg.sn';
+const FALLBACK_ADMIN_EMAIL = 'admin@essg.itdcmada.com';
 
 const FALLBACK_ADMIN_SECRET = ['Admin', '2026'].join('@');
 

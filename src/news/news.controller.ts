@@ -23,6 +23,10 @@ import {
   ApiStandardErrors,
   ApiStandardResponse,
 } from '../common/swagger/api-response.decorator';
+import {
+  API_BEARER_AUTH_NAME,
+  SWAGGER_OPERATION_SUCCESS,
+} from '../common/swagger/swagger.constants';
 
 @ApiTags('Actualités')
 @Controller('news')
@@ -58,7 +62,7 @@ export class NewsController {
     summary: 'Consulter une actualité par slug',
     description: 'Utilisé par le site vitrine.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false, notFound: true })
   @ApiMessage('Actualité récupérée')
   findBySlug(@Param('slug') slug: string) {
@@ -70,7 +74,7 @@ export class NewsController {
     summary: 'Consulter une actualité',
     description: "Détail complet d'une actualité.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false, notFound: true })
   @ApiMessage('Actualité récupérée')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -80,7 +84,7 @@ export class NewsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Créer une actualité',
     description:
@@ -95,12 +99,12 @@ export class NewsController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Mettre à jour une actualité',
     description: "Mise à jour d'une actualité existante.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true, conflict: true })
   @ApiMessage('Actualité mise à jour')
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateActualiteDto) {
@@ -109,12 +113,12 @@ export class NewsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Supprimer une actualité',
     description: "Suppression définitive de l'actualité.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Actualité supprimée')
   remove(@Param('id', ParseIntPipe) id: number) {

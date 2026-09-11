@@ -23,6 +23,10 @@ import {
   ApiStandardErrors,
   ApiStandardResponse,
 } from '../common/swagger/api-response.decorator';
+import {
+  API_BEARER_AUTH_NAME,
+  SWAGGER_OPERATION_SUCCESS,
+} from '../common/swagger/swagger.constants';
 
 @ApiTags('Projets')
 @Controller('projects')
@@ -59,7 +63,7 @@ export class ProjectsController {
     summary: 'Consulter un projet par slug',
     description: 'Utilisé par le site vitrine pour les URL lisibles.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false, notFound: true })
   @ApiMessage('Projet récupéré')
   findBySlug(@Param('slug') slug: string) {
@@ -71,7 +75,7 @@ export class ProjectsController {
     summary: 'Consulter un projet',
     description: "Détail complet d'un projet.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false, notFound: true })
   @ApiMessage('Projet récupéré')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -81,7 +85,7 @@ export class ProjectsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Créer un projet',
     description:
@@ -96,12 +100,12 @@ export class ProjectsController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Mettre à jour un projet',
     description: "Mise à jour partielle ou complète d'un projet existant.",
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true, conflict: true })
   @ApiMessage('Projet mis à jour')
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProjetDto) {
@@ -110,12 +114,12 @@ export class ProjectsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Supprimer un projet',
     description: 'Suppression définitive du projet.',
   })
-  @ApiStandardResponse(undefined, { description: 'Opération effectuée avec succès' })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, notFound: true })
   @ApiMessage('Projet supprimé')
   remove(@Param('id', ParseIntPipe) id: number) {

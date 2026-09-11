@@ -74,7 +74,7 @@ export const DISPOSABLE_EMAIL_DOMAINS: readonly string[] = [
 
 export const TRUSTED_EMAIL_DOMAINS: readonly string[] = [
   'essg.mg',
-  'essg.sn',
+  'essg.itdcmada.com',
   'gmail.com',
   'googlemail.com',
   'yahoo.com',

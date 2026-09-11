@@ -114,14 +114,15 @@ export class RessourcesHumainesService {
   private async findPaginated(
     where: Record<string, unknown> | Record<string, unknown>[],
     paginationDto: QueryRessourceHumaineDto,
-    defaultOrder: Record<string, 'ASC' | 'DESC'> = { ordre: 'DESC', id: 'DESC' },
+    defaultOrder?: Record<string, 'ASC' | 'DESC'>,
   ): Promise<PaginatedData<RessourceHumaine>> {
     const { page = 1, limit = 10, sortBy, sortOrder = 'DESC' } = paginationDto;
     const skip = (page - 1) * limit;
+    const order = defaultOrder ?? { ordre: 'DESC', id: 'DESC' };
 
     const [data, total] = await this.repo.findAndCount({
       where,
-      order: sortBy ? { [sortBy]: sortOrder } : defaultOrder,
+      order: sortBy ? { [sortBy]: sortOrder } : order,
       skip,
       take: limit,
     });

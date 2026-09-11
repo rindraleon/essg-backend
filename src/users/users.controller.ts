@@ -37,6 +37,7 @@ import {
 import { CreateUtilisateurDto } from './dto/create-user.dto';
 import { UpdateUtilisateurDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
+import { API_BEARER_AUTH_NAME } from '../common/swagger/swagger.constants';
 
 interface AuthUser {
   userId: number;
@@ -52,7 +53,7 @@ const AVATAR_FIELDS = [
 type UploadedAvatarFiles = Record<string, Express.Multer.File[] | undefined>;
 
 @ApiTags('Utilisateurs')
-@ApiBearerAuth('access-token')
+@ApiBearerAuth(API_BEARER_AUTH_NAME)
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
