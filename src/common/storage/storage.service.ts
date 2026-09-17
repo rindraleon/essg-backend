@@ -154,8 +154,11 @@ export class StorageService implements OnModuleInit {
     try {
       const stream = await measureAsync('storage', () => this.client.getObject(bucket, objectName));
       return await this.streamToBuffer(stream);
-    } catch {
-      this.logger.warn(`Fichier « ${objectName} » introuvable dans MinIO`);
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Fichier « ${objectName} » introuvable dans MinIO`,
+        error instanceof Error ? error.message : error,
+      );
       throw new NotFoundException('Fichier introuvable');
     }
   }
@@ -164,7 +167,11 @@ export class StorageService implements OnModuleInit {
     this.assertMinioAvailable();
     try {
       return await measureAsync('storage', () => this.client.getObject(bucket, objectName));
-    } catch {
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Impossible d'ouvrir le flux pour « ${objectName} »`,
+        error instanceof Error ? error.message : error,
+      );
       throw new NotFoundException('Fichier introuvable');
     }
   }

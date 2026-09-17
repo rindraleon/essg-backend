@@ -178,8 +178,11 @@ export class OcrService {
     try {
       const tesseract = await import('tesseract.js');
       return tesseract.createWorker;
-    } catch {
-      this.logger.warn('tesseract.js non installé, OCR désactivé - utilisation du fallback');
+    } catch (error: unknown) {
+      this.logger.warn(
+        'tesseract.js non installé, OCR désactivé - utilisation du fallback',
+        error instanceof Error ? error.message : error,
+      );
       return null;
     }
   }

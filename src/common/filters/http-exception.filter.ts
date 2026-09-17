@@ -13,6 +13,8 @@ import {
   API_VERSION,
   API_VERSION_HEADER,
 } from '../constants/api.constants';
+import { isScannerProbePath } from '../constants/scanner.constants';
+
 
 interface ExceptionBody {
   message?: string | string[];
@@ -45,7 +47,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
-    this.logger.error(`HTTP ${statusCode}: ${message}`);
+    this.logException(statusCode, message, request);
 
     response.setHeader(API_SIGNATURE_HEADER, API_SIGNATURE);
     response.setHeader(API_VERSION_HEADER, API_VERSION);
@@ -57,5 +59,40 @@ export class HttpExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request?.originalUrl ?? request?.url,
     });
+  }
+
+  private logException(statusCode: number, message: string, request?: Request): void {
+    const method = request?.method ?? 'UNKNOWN';
+    const url = request?.originalUrl ?? request?.url ?? '-';
+
+    // 1. Scanner / bruit navigateur → aucun log d'erreur, déjà géré par ScannerGuardMiddleware
+    if (isScannerProbePath(url)) {
+      return;
+    }
+
+    // 2. Cas normal : refresh token absent/expiré après rechargement page
+    // Ne doit jamais apparaître comme ERROR en prod
+    if (
+      statusCode === HttpStatus.UNAUTHORIZED &&
+      url.includes('/auth/refresh')
+    ) {
+      this.logger.debug(`HTTP 401 refresh sans cookie — ${method} ${url} — ${message}`);
+      return;
+    }
+
+    // 3. Erreurs serveur → error
+    if (statusCode >= Number(HttpStatus.INTERNAL_SERVER_ERROR)) {
+      this.logger.error(`HTTP ${statusCode} ${method} ${url} — ${message}`);
+      return;
+    }
+
+    // 4. Rate limit → warn
+    if (statusCode === Number(HttpStatus.TOO_MANY_REQUESTS)) {
+      this.logger.warn(`HTTP ${statusCode} ${method} ${url} — ${message}`);
+      return;
+    }
+
+    // 5. Tout le reste 4xx → debug (client en faute, pas le backend)
+    this.logger.debug(`HTTP ${statusCode} ${method} ${url} — ${message}`);
   }
 }

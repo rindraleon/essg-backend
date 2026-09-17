@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Logger, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, In, Repository } from 'typeorm';
 import { PaginatedData } from '../common/interfaces/api-response.interface';
@@ -14,6 +14,7 @@ import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constan
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
   constructor(
     @InjectRepository(Projet)
     private readonly repo: Repository<Projet>,
@@ -73,7 +74,11 @@ export class ProjectsService {
       let parsed: URL;
       try {
         parsed = new URL(withProtocol);
-      } catch {
+      } catch (error: unknown) {
+        this.logger.warn(
+          `URL invalide détectée : « ${rawUrl} »`,
+          error instanceof Error ? error.message : error,
+        );
         throw new BadRequestException(`L'URL « ${rawUrl} » est invalide.`);
       }
       if (!['http:', 'https:'].includes(parsed.protocol)) {
