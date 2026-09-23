@@ -32,6 +32,8 @@ export const DISPOSABLE_EMAIL_DOMAINS: readonly string[] = [
   'kasmail.com',
   'mail-temporaire.fr',
   'mail.tm',
+  'maxtanie.com',
+  'maxtanie.net',
   'mail7.io',
   'mailcatch.com',
   'maildrop.cc',

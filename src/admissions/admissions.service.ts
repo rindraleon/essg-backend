@@ -147,6 +147,11 @@ export class AdmissionsService {
       annee?: number;
     } = {};
 
+    const email = this.normalizeOptional(dto.email);
+    if (email) {
+      await this.emailGuard.assertUsable(email);
+    }
+
     const bordereau = this.normalizeOptional(dto.numeroBordereau);
     if (bordereau) {
       const found = await this.admissionsRepository.findOne({
