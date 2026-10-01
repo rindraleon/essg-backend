@@ -57,6 +57,7 @@ export class OcrService {
       );
     }
 
+    // Fallback: analyse manuelle en-tête PNG
     try {
       if (buffer.length > 24 && buffer[0] === 0x89 && buffer[1] === 0x50) {
         const width = buffer.readUInt32BE(16);
@@ -69,7 +70,34 @@ export class OcrService {
         error instanceof Error ? error.message : error,
       );
     }
-    return null;
+
+    // Fallback: analyse manuelle en-tête JPEG (SOF0 marker)
+    try {
+      if (buffer.length > 2 && buffer[0] === 0xFF && buffer[1] === 0xD8) {
+        let offset = 2;
+        while (offset < buffer.length - 9) {
+          if (buffer[offset] !== 0xFF) break;
+          const marker = buffer[offset + 1];
+          const segmentLength = buffer.readUInt16BE(offset + 2);
+          // SOF0 (0xC0) ou SOF2 (0xC2) contiennent les dimensions
+          if (marker === 0xC0 || marker === 0xC2) {
+            const height = buffer.readUInt16BE(offset + 5);
+            const width = buffer.readUInt16BE(offset + 7);
+            if (width > 0 && height > 0) return { width, height };
+          }
+          offset += 2 + segmentLength;
+        }
+      }
+    } catch (error: unknown) {
+      this.logger.warn(
+        'En-tête JPEG illisible : les dimensions restent inconnues',
+        error instanceof Error ? error.message : error,
+      );
+    }
+
+    // Si on ne peut pas déterminer les dimensions, rejeter par sécurité
+    this.logger.warn('Dimensions de l\'image indeterminables — rejection par sécurité');
+    return { width: 0, height: 0 };
   }
 
   private async performImageOcr(buffer: Buffer): Promise<OcrResult> {
@@ -93,12 +121,24 @@ export class OcrService {
 
       const processedBuffer = await this.preprocessImage(buffer);
 
+      // Re-vérifier les dimensions après pré-traitement (rotation possible)
+      const processedDims = await this.validateImageSize(processedBuffer);
+      const postProcessError = this.validateOcrDimensions(processedDims);
+      if (postProcessError) {
+        return postProcessError;
+      }
+
       const { OEM } = await import('tesseract.js');
       const worker: OcrWorker = await createWorker('fra+eng', OEM.LSTM_ONLY, {
         logger: () => undefined,
       });
-      const { data } = await worker.recognize(processedBuffer);
-      await worker.terminate();
+      let data;
+      try {
+        const result = await worker.recognize(processedBuffer);
+        data = result.data;
+      } finally {
+        await worker.terminate();
+      }
 
       const text = data?.text ?? '';
       const confidence = OcrService.estimateConfidence(data?.confidence, text);
@@ -117,9 +157,13 @@ export class OcrService {
       };
     } catch (error) {
       const raw = error instanceof Error ? error.message : String(error);
-      // Mapping erreur Leptonica en message métier FR
+      // Mapping erreur Leptonica en message métier FR (supprimer le bruit Tesseract)
       if (/Image too small to scale/i.test(raw)) {
         return this.buildImageTooSmallResult(raw);
+      }
+      // Supprimer les messages internes de Tesseract/Leptonica du log
+      if (/Leptonica|tesseract|Tesseract|lstmrecognizer/i.test(raw)) {
+        return this.ocrError('Lecture impossible : erreur interne du moteur OCR — image probablement illisible ou corrompue');
       }
       this.logger.warn(`Échec OCR: ${raw}`);
       return {
@@ -133,14 +177,14 @@ export class OcrService {
 
   private buildImageTooSmallResult(raw: string): OcrResult {
     const sizeMatch = IMAGE_SIZE_ERROR_PATTERN.exec(raw);
-    const dimsStr = sizeMatch ? sizeMatch[1] : '2×36';
+    const dimsStr = sizeMatch ? sizeMatch[1] : 'dimensions inconnues';
     const minStr = sizeMatch ? sizeMatch[2] : '3';
-    this.logger.warn(`OCR ignoré : ${raw} — image décorative`);
+    this.logger.log(`Image trop petite pour OCR (${dimsStr}) — ignorée gracieusement`);
     return {
       text: '',
       confidence: 0,
       method: 'ocr',
-      error: `Lecture impossible : image trop petite (${dimsStr} vs minimum ${minStr}px de large) — scan illisible ou fichier décoratif, ignorée`,
+      error: `Lecture impossible : image trop petite (${dimsStr}, minimum ${minStr}px) — fichier décoratif ou icône, ignoré`,
     };
   }
 
@@ -156,7 +200,11 @@ export class OcrService {
   }
 
   private validateOcrDimensions(dims: { width: number; height: number } | null): OcrResult | null {
-    if (!dims) return null;
+    if (!dims || dims.width === 0 || dims.height === 0) {
+      return this.ocrError(
+        'Lecture impossible : dimensions de l\'image indeterminables ou nulles — fichier corrompu ou décoratif',
+      );
+    }
     const { width, height } = dims;
     if (width < 15 || height < 15 || width * height < 800) {
       this.logger.warn(

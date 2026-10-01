@@ -448,6 +448,8 @@ export class AdmissionDocumentVerificationService {
         allNumbers: bordereauFull.allNumbers.slice(0, 20),
         allAlphanumerics: bordereauFull.allAlphanumerics.slice(0, 20),
         bordereauNumber: bordereauFull.bordereauNumber,
+        referenceField: bordereauFull.referenceField,
+        detectedModel: bordereauFull.detectedModel,
         dates: bordereauFull.dates,
         montants: bordereauFull.montants,
       };
@@ -1003,7 +1005,7 @@ export class AdmissionDocumentVerificationService {
       return {
         champ: 'centreExamen',
         label: LABEL_CENTRE_EXAMEN,
-        valeurSaisie: normalizeText(valeurSaisie),
+        valeurSaisie: normalizeCentre(valeurSaisie),
         valeurExtraite: null,
         statut: VerificationFieldStatus.NON_DETECTE,
         score: 0,
@@ -1012,8 +1014,8 @@ export class AdmissionDocumentVerificationService {
       };
     }
     const cmp = compareCentres(valeurSaisie, texte);
-    const normSaisie = normalizeText(valeurSaisie);
-    const normExtrait = cmp.detectedSnippet ? normalizeText(cmp.detectedSnippet) : null;
+    const normSaisie = normalizeCentre(valeurSaisie);
+    const normExtrait = cmp.detectedSnippet ? normalizeCentre(cmp.detectedSnippet) : null;
 
     if (cmp.similarity >= 0.95) {
       return {
@@ -1130,6 +1132,8 @@ export class AdmissionDocumentVerificationService {
       details: {
         isDuplicate: res.isDuplicate,
         duplicateFound: res.duplicateFound,
+        referenceField: full.referenceField,
+        detectedModel: full.detectedModel,
         allNumbers: full.allNumbers.slice(0, 10),
         allAlphanumerics: full.allAlphanumerics.slice(0, 10),
         dates: full.dates.slice(0, 5),

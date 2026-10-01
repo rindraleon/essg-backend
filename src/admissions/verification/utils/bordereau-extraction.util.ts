@@ -2,25 +2,17 @@ import { normalizeBordereau } from './normalization.util';
 import { similarityRatio } from './similarity.util';
 
 export interface BordereauExtractionResult {
-  /** Tous les nombres trouvés (séquences de chiffres) */
   allNumbers: string[];
-  /** Tous les tokens alphanumériques (6+ caractères) */
   allAlphanumerics: string[];
-  /** Numéro de bordereau détecté (le plus probable) */
   bordereauNumber: string | null;
-  /** Variante normalisée du bordereau */
   bordereauNormalized: string | null;
-  /** Toutes les références alphanumériques contenant chiffres (candidats bordereau) */
   transactionReferences: string[];
-  /** Dates trouvées */
   dates: string[];
-  /** Montants trouvés (avec devise) */
   montants: string[];
-  /** Texte brut nettoyé */
+  referenceField: string | null;
   cleanedText: string;
-  /** Confiance globale */
   confidence: number;
-  /** Détails pour debug */
+  detectedModel: 'boa' | 'faby' | 'bni' | 'generic' | 'unknown';
   details: {
     candidates: string[];
     bestScore: number;
@@ -29,15 +21,11 @@ export interface BordereauExtractionResult {
 }
 
 const BORDEREAU_PATTERNS: RegExp[] = [
-  // Forme avec préfixe explicite
-  /\b(?:bordereau|bord|bdr|brd|ref|reference|transaction|recu|reçu|numero|numéro|n°|n\.?)[\s:_-]{0,20}([A-Z0-9][A-Z0-9\-_/.]{4,20})\b/gi,
-  // Forme spécifique bordereau FABY / 200A... : 200A00028461, 20OA00026402, 34241001570-60 etc. (prioritaire)
+  /\b(?:bordereau|bord|bdr|brd|ref|reference|référence|transaction|recu|reçu|numero|numéro|n°|n\.?)[\s:_-]{0,20}([A-Z0-9][A-Z0-9\-_/.]{4,20})\b/gi,
   /\b\d{2,4}[A-Z0-9]\d{5,10}(?:[-_/]\d{1,4})?\b/g,
-  // Forme avec séparateurs : AA-1234-5678, AA/1234, etc.
+  /\b[A-Z]{2,4}\d{2,5}\/[A-Z]{1,4}\b/g,
   /\b[A-Z]{2,4}[-_/\s]{0,10}\d{3,6}[-_/\s]{0,10}\d{3,6}\b/g,
-  // Forme numérique pure longue (6-12 chiffres) souvent bordereau
   /\b\d{6,12}\b/g,
-  // Forme alphanumérique avec tirets : 2026-001254, etc.
   /\b\d{4}[-_/]\d{3,6}\b/g,
 ];
 
@@ -47,7 +35,6 @@ const DATE_PATTERNS: RegExp[] = [
 ];
 
 const MONTANT_PATTERNS: RegExp[] = [
-  // 150 000 Ar, 150000 MGA, 50.000, 1 200,00 etc.
   /\b\d{1,3}(?:[\s.']\d{3}){0,10}(?:[,.]\d{2})?\s{0,10}(?:Ar|MGA|Fmg|FMG|€|EUR)?\b/gi,
   /\b(?:montant|somme|total|payé|paye|versement)[\s:]{0,10}(\d[\d,.]{0,30})\s{0,10}(?:Ar|MGA)?\b/gi,
 ];
@@ -71,12 +58,19 @@ export function extractBordereauFull(text: string): BordereauExtractionResult {
   );
   const dates = collectMatches(text, DATE_PATTERNS);
   const montants = collectMatches(text, MONTANT_PATTERNS, true);
+
+  // Extraction du champ "Référence:" (prioritaire — présent sur BOA et FABY/BNI)
+  const referenceField = extractReferenceField(text);
+
   const matches = collectBordereauMatches(text);
-  const selected = selectBordereau(matches.candidates, allAlphanumerics, text);
+  const allCandidates = referenceField ? [referenceField, ...matches.candidates] : matches.candidates;
+  const selected = selectBordereau(allCandidates, allAlphanumerics, text);
   const bordereauNumber = selected.number;
   const bestScore = selected.score;
 
   const bordereauNormalized = bordereauNumber ? normalizeBordereau(bordereauNumber) : null;
+
+  const detectedModel = detectBordereauModel(text);
 
   const confidence = computeExtractionConfidence(bordereauNumber, bestScore, allNumbers.length);
 
@@ -88,6 +82,8 @@ export function extractBordereauFull(text: string): BordereauExtractionResult {
     transactionReferences,
     dates: [...new Set(dates)],
     montants: [...new Set(montants)],
+    referenceField,
+    detectedModel,
     cleanedText,
     confidence,
     details: {
@@ -109,6 +105,47 @@ function computeExtractionConfidence(
   return numberCount > 0 ? 0.3 : 0;
 }
 
+/** Extrait la valeur du champ « Référence » (présent sur les modèles BOA et FABY/BNI) */
+function extractReferenceField(text: string): string | null {
+  const refMatch = text.match(
+    /\b(?:référence|reference|ref)[\s:_-]{0,10}([A-Z0-9][A-Z0-9\-_/.]{4,30})\b/i,
+  );
+  if (refMatch) {
+    const value = refMatch[1].trim().toUpperCase();
+    if (value.length >= 5) return value;
+  }
+  return null;
+}
+
+/** Détecte le modèle de bordereau en fonction des marqueurs textuels */
+function detectBordereauModel(
+  text: string,
+): 'boa' | 'faby' | 'bni' | 'generic' | 'unknown' {
+  if (!text) return 'unknown';
+  const upper = text.toUpperCase();
+  if (
+    /BANK\s+OF\s+AFRICA/i.test(text) ||
+    /BOA\s+MADAGASCAR/i.test(text) ||
+    /BMCE\s+GROUP/i.test(text)
+  ) {
+    return 'boa';
+  }
+  if (
+    /BNI\s+MADAGASCAR/i.test(text) ||
+    /BANKING\s+AND\s+INDUSTRIAL/i.test(upper) ||
+    /\bFABY\b/i.test(text)
+  ) {
+    return /BNI/i.test(text) ? 'bni' : 'faby';
+  }
+  if (/\d{2,4}[A-Z0-9]\d{5,10}/.test(text)) {
+    return 'faby';
+  }
+  if (/[A-Z]{2,4}\d{2,5}\/[A-Z]{1,4}/.test(text)) {
+    return 'generic';
+  }
+  return 'unknown';
+}
+
 function emptyExtraction(): BordereauExtractionResult {
   return {
     allNumbers: [],
@@ -118,6 +155,8 @@ function emptyExtraction(): BordereauExtractionResult {
     transactionReferences: [],
     dates: [],
     montants: [],
+    referenceField: null,
+    detectedModel: 'unknown',
     cleanedText: '',
     confidence: 0,
     details: { candidates: [], bestScore: 0, allMatches: [] },
@@ -169,6 +208,8 @@ function scoreBordereauCandidate(normalized: string, lines: string[]): number {
   if (['758020', '34241001570', '3424100157060'].includes(normalized)) score -= 0.5;
   const year = new Date().getFullYear();
   if (normalized.includes(String(year)) || normalized.includes(String(year - 1))) score += 0.05;
+  if (/^[A-Z]{2,4}\d{2,5}\/[A-Z]{1,4}$/.test(normalized)) score += 0.35;
+  if (/^\d{2,4}[A-Z0-9]\d{5,10}/.test(normalized.replace(/[-_/]/g, ''))) score += 0.3;
   return score;
 }
 

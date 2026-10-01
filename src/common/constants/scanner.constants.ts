@@ -81,9 +81,6 @@ export function normalizeProbePath(rawUrl: string | null | undefined): string {
   try {
     decoded = decodeURIComponent(withoutQuery);
   } catch (error: unknown) {
-    // Séquence d'échappement invalide (%zz) dans l'URL d'un scanner : on garde la forme brute
-    // Pas de log warn ici pour éviter de polluer les logs avec du bruit de scan, mais on trace en debug si besoin
-    // Détail ignoré volontairement : error instanceof Error ? error.message : String(error)
     decoded = withoutQuery;
   }
   return decoded.toLowerCase();

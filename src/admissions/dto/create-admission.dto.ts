@@ -161,9 +161,9 @@ export class CreateAdmissionDto {
   @IsOptional()
   @IsString()
   @Matches(/^[A-Za-z0-9\-_/.\s]+$/, {
-    message: 'Le numéro de bordereau de versement contient des caractères invalides',
+    message: 'Le numéro de bordereau de versement contient des caractères invalides. Caractères autorisés : lettres, chiffres, tiret, underscore, slash (/), point.',
   })
-  @MaxLength(15)
+  @MaxLength(30)
   numeroBordereau?: string;
 
   @IsString()
