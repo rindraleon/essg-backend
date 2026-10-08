@@ -12,12 +12,8 @@ import { buildPaginatedData } from '../common/utils/pagination.util';
 import { ILIKE_ESCAPE, buildIlikeTerm, sanitizeSortField } from '../common/utils/search.util';
 import { capitalize, capitalizeArray } from '../common/utils/text.util';
 import { buildUniqueSlug, shouldRegenerateSlug } from '../common/utils/slug.util';
-import {
-  canonicalMentionLabel,
-  canonicalTitre,
-  findMentionByTitre,
-  isTitreInMention,
-} from './formation-mentions.constant';
+import { Mention } from '../mentions/entities/mention.entity';
+import { Parcours } from '../mentions/entities/parcours.entity';
 import { CreateFormationDto, UpdateFormationDto } from './dto/create-formation.dto';
 import { Formation } from './entities/formation.entity';
 import { RessourceHumaine } from '../ressources-humaines/entities/ressource-humaine.entity';
@@ -37,6 +33,9 @@ const FORMATION_SORT_FIELDS = [
   'misAJourLe',
 ] as const;
 
+/** Relations chargées en lecture : parcours + mention déduite du parcours. */
+const FORMATION_RELATIONS = { parcours: { mention: true } } as const;
+
 @Injectable()
 export class FormationsService {
   constructor(
@@ -44,6 +43,10 @@ export class FormationsService {
     private readonly repo: Repository<Formation>,
     @InjectRepository(RessourceHumaine)
     private readonly ressourceRepo: Repository<RessourceHumaine>,
+    @InjectRepository(Parcours)
+    private readonly parcoursRepo: Repository<Parcours>,
+    @InjectRepository(Mention)
+    private readonly mentionRepo: Repository<Mention>,
     private readonly cacheService: CacheService,
     private readonly emailGuard: EmailGuardService,
   ) {}
@@ -105,6 +108,37 @@ export class FormationsService {
     };
   }
 
+  private async resolveParcours(parcoursId: number): Promise<Parcours> {
+    const parcours = await this.parcoursRepo.findOne({
+      where: { id: parcoursId },
+      relations: { mention: true },
+    });
+    if (!parcours || !parcours.mention) {
+      throw new BadRequestException('Le parcours sélectionné est introuvable.');
+    }
+    if (!parcours.isActive) {
+      throw new BadRequestException(
+        `Le parcours « ${parcours.nom} » est désactivé ; sélectionnez un parcours actif.`,
+      );
+    }
+    return parcours;
+  }
+
+  private assertMentionMatchesParcours(mention: string | undefined, parcours: Parcours): void {
+    if (!mention?.trim()) return;
+    const derived = (parcours.mention as Mention).nom.trim().toLowerCase();
+    if (mention.trim().toLowerCase() !== derived) {
+      throw new BadRequestException(
+        `La mention est déduite du parcours sélectionné « ${parcours.nom} » (mention : « ${derived} ») ; elle ne peut pas être définie indépendamment.`,
+      );
+    }
+  }
+
+  private mirrorsFromParcours(parcours: Parcours): { mention: string; domaine: string[] } {
+    const mention = (parcours.mention as Mention).nom;
+    return { mention, domaine: [mention] };
+  }
+
   private async findAllFromDatabase(
     paginationDto: PaginationDto,
   ): Promise<PaginatedData<Formation>> {
@@ -113,6 +147,7 @@ export class FormationsService {
     const orderField = sanitizeSortField(sortBy, FORMATION_SORT_FIELDS) ?? 'creeLe';
 
     const [data, total] = await this.repo.findAndCount({
+      relations: FORMATION_RELATIONS,
       order: { [orderField]: sortOrder === 'DESC' ? 'DESC' : 'ASC' },
       skip,
       take: limit,
@@ -135,48 +170,56 @@ export class FormationsService {
     const orderField = sanitizeSortField(sortBy, FORMATION_SORT_FIELDS) ?? 'creeLe';
     const term = buildIlikeTerm(query);
 
-    const [data, total] = await this.repo
+    const qb = this.repo
       .createQueryBuilder('formation')
+      .leftJoinAndSelect('formation.parcours', 'parcours')
+      .leftJoinAndSelect('parcours.mention', 'mention')
       .where(`formation.titre ILIKE :query ${ILIKE_ESCAPE}`, { query: term })
       .orWhere(`formation.description ILIKE :query ${ILIKE_ESCAPE}`, { query: term })
       .orWhere(`formation.mention ILIKE :query ${ILIKE_ESCAPE}`, { query: term })
-      .orWhere(`formation.domaine::text ILIKE :query ${ILIKE_ESCAPE}`, { query: term })
+      .orWhere(`parcours.nom ILIKE :query ${ILIKE_ESCAPE}`, { query: term })
+      .orWhere(`mention.nom ILIKE :query ${ILIKE_ESCAPE}`, { query: term })
       .orderBy(`formation.${orderField}`, sortOrder === 'DESC' ? 'DESC' : 'ASC')
       .skip(skip)
-      .take(limit)
-      .getManyAndCount();
+      .take(limit);
 
+    const [data, total] = await qb.getManyAndCount();
     return buildPaginatedData(data, total, page, limit);
   }
 
   private async findOneFromDatabase(id: number): Promise<Formation> {
-    const item = await this.repo.findOne({ where: { id } });
+    const item = await this.repo.findOne({ where: { id }, relations: FORMATION_RELATIONS });
     if (!item) throw new NotFoundException('Formation non trouvée');
     return item;
   }
 
   private async findBySlugFromDatabase(slug: string): Promise<Formation> {
-    const item = await this.repo.findOne({ where: { slug } });
+    const item = await this.repo.findOne({ where: { slug }, relations: FORMATION_RELATIONS });
     if (!item) throw new NotFoundException('Formation non trouvée');
     return item;
   }
 
   async create(dto: CreateFormationDto): Promise<Formation> {
     await this.emailGuard.assertUsable(dto.email);
-    const { titre, mention } = this.resolveHierarchy(dto.titre, dto.mention);
+    const parcours = await this.resolveParcours(dto.parcoursId);
+    this.assertMentionMatchesParcours(dto.mention, parcours);
+    const mirrors = this.mirrorsFromParcours(parcours);
+    // « Formation = Parcours » : sans titre fourni, celui du parcours s'applique.
+    const titre = (dto.titre?.trim() || parcours.nom).trim();
     const slug = await buildUniqueSlug(this.repo, titre);
     const responsableInfo = await this.resolveResponsable(dto.responsableId);
     const item = this.repo.create({
       ...dto,
       slug,
-      mention,
       titre,
+      mention: mirrors.mention,
+      domaine: [mirrors.mention],
+      parcoursId: parcours.id,
       duree: capitalize(dto.duree),
       description: capitalize(dto.description),
       ...(responsableInfo ?? {
         responsable: dto.responsable ? capitalize(dto.responsable) : dto.responsable,
       }),
-      domaine: dto.domaine?.length ? capitalizeArray(dto.domaine) : [mention],
       objectifs: capitalizeArray(dto.objectifs),
       debouches: capitalizeArray(dto.debouches),
       conditions: capitalizeArray(dto.conditions),
@@ -186,7 +229,7 @@ export class FormationsService {
     });
     const saved = await this.saveOrConflict(item);
     this.invalidateCache();
-    return saved;
+    return this.findOneFromDatabase(saved.id);
   }
 
   async update(id: number, dto: UpdateFormationDto): Promise<Formation> {
@@ -194,8 +237,20 @@ export class FormationsService {
     await this.emailGuard.assertUsable(dto.email);
     const updateData: Partial<Formation> = { ...dto };
     delete (updateData as { slug?: string }).slug;
+    delete (updateData as { mention?: string }).mention;
+    delete (updateData as { domaine?: string[] }).domaine;
 
-    this.applyHierarchyUpdate(current, dto, updateData);
+    if (dto.parcoursId !== undefined) {
+      const parcours = await this.resolveParcours(dto.parcoursId);
+      const mirrors = this.mirrorsFromParcours(parcours);
+      updateData.parcoursId = parcours.id;
+      updateData.mention = mirrors.mention;
+      updateData.domaine = mirrors.domaine;
+      // Changement de parcours sans titre explicite : le titre suit le nouveau
+      // parcours (une seule information métier, jamais de valeur divergente).
+      updateData.titre = (dto.titre?.trim() || parcours.nom).trim();
+    }
+
     await this.updateSlug(id, current, updateData);
     this.capitalizeUpdateFields(dto, updateData);
     await this.applyResponsableUpdate(dto, updateData);
@@ -212,28 +267,14 @@ export class FormationsService {
     return this.findOne(id);
   }
 
-  private applyHierarchyUpdate(
-    current: Formation,
-    dto: UpdateFormationDto,
-    updateData: Partial<Formation>,
-  ): void {
-    if (dto.titre === undefined && dto.mention === undefined) return;
-    const { titre, mention } = this.resolveHierarchy(
-      dto.titre ?? current.titre,
-      dto.mention ?? current.mention,
-    );
-    updateData.titre = titre;
-    updateData.mention = mention;
-    if (!dto.domaine) updateData.domaine = [mention];
-  }
-
   private async updateSlug(
     id: number,
     current: Formation,
     updateData: Partial<Formation>,
   ): Promise<void> {
+    if (!updateData.titre) return;
     if (!shouldRegenerateSlug(current.titre, updateData.titre, current.slug)) return;
-    updateData.slug = await buildUniqueSlug(this.repo, updateData.titre ?? current.titre, {
+    updateData.slug = await buildUniqueSlug(this.repo, updateData.titre, {
       excludeId: id,
     });
   }
@@ -241,7 +282,6 @@ export class FormationsService {
   private capitalizeUpdateFields(dto: UpdateFormationDto, updateData: Partial<Formation>): void {
     if (dto.duree) updateData.duree = capitalize(dto.duree);
     if (dto.description) updateData.description = capitalize(dto.description);
-    if (dto.domaine) updateData.domaine = capitalizeArray(dto.domaine);
     if (dto.objectifs) updateData.objectifs = capitalizeArray(dto.objectifs);
     if (dto.debouches) updateData.debouches = capitalizeArray(dto.debouches);
     if (dto.conditions) updateData.conditions = capitalizeArray(dto.conditions);
@@ -268,26 +308,17 @@ export class FormationsService {
     this.invalidateCache();
   }
 
-  private resolveHierarchy(
-    rawTitre: string,
-    rawMention?: string | null,
-  ): { titre: string; mention: string } {
-    const titre = canonicalTitre(rawTitre.trim());
-    const deduced = findMentionByTitre(titre);
-
-    if (!rawMention) {
-      return { titre, mention: deduced?.label ?? '' };
-    }
-
-    const mention = canonicalMentionLabel(rawMention.trim());
-
-    if (deduced && !isTitreInMention(mention, titre)) {
-      throw new BadRequestException(
-        `Le titre « ${titre} » appartient à la mention « ${deduced.label} » et non à « ${mention} ».`,
-      );
-    }
-
-    return { titre, mention };
+  /**
+   * Ancien référentiel des mentions (déprécié) : renvoie désormais les
+   * mentions réelles enregistrées en base (utilisé par les clients publics
+   * et l'endpoint de compatibilité `GET /formations/mentions`).
+   */
+  async findMentionLabels(): Promise<Pick<Mention, 'id' | 'nom' | 'slug' | 'domaine'>[]> {
+    return this.mentionRepo.find({
+      where: { isActive: true },
+      select: ['id', 'nom', 'slug', 'domaine'],
+      order: { nom: 'ASC' },
+    });
   }
 
   private async saveOrConflict(item: Formation): Promise<Formation> {

@@ -17,7 +17,6 @@ import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CreateFormationDto, UpdateFormationDto } from './dto/create-formation.dto';
 import { FormationsService } from './formations.service';
-import { FORMATION_MENTIONS } from './formation-mentions.constant';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ApiPaginatedResponse,
@@ -48,15 +47,16 @@ export class FormationsController {
 
   @Get('mentions')
   @ApiOperation({
-    summary: 'Lister les mentions',
+    summary: 'Lister les mentions (compatibilité)',
+    deprecated: true,
     description:
-      'Référentiel statique des mentions de formation (utilisé par les listes déroulantes du Back-Office).',
+      'Endpoint de compatibilité : renvoie les mentions réellement enregistrées (table `mentions`). Préférer `GET /mentions` ou `GET /mentions/options`.',
   })
   @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: false })
   @ApiMessage('Mentions récupérées')
   findMentions() {
-    return FORMATION_MENTIONS;
+    return this.service.findMentionLabels();
   }
 
   @Get('search')

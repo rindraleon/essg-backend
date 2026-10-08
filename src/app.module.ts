@@ -19,6 +19,7 @@ import { FormationsModule } from './formations/formations.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { MediaModule } from './media/media.module';
+import { MentionsModule } from './mentions/mentions.module';
 import { MessagesModule } from './messages/messages.module';
 import { ActivityLogsModule } from './activity-logs/activity-log.module';
 import { NewsModule } from './news/news.module';
@@ -46,6 +47,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     SessionsModule,
     FormationsModule,
+    MentionsModule,
     ProjectsModule,
     PartnersModule,
     MessagesModule,

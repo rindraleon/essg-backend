@@ -9,7 +9,11 @@ export type BacCategory = (typeof BAC_CATEGORIES)[number];
 export const ADMISSION_SOURCES = [
   'soifee',
   'evenement-universite',
+  'porte-ouverte',
+  'facebook',
   'radio',
+  'radio-ambalavao',
+  'radio-rofia',
   'salon-tana',
   'recommandation',
 ] as const;
@@ -19,7 +23,11 @@ export type AdmissionSource = (typeof ADMISSION_SOURCES)[number];
 export const ADMISSION_SOURCE_LABELS: Record<AdmissionSource, string> = {
   soifee: 'SOIFEE',
   'evenement-universite': 'Évènement université',
+  'porte-ouverte': 'Journée Porte Ouverte',
+  facebook: 'Page Facebook ESSG',
   radio: 'Radio',
+  'radio-ambalavao': 'Hai Radio Ambalavao',
+  'radio-rofia': 'Radio Rofia',
   'salon-tana': 'Salon Tana',
   recommandation: 'Recommandation',
 };
@@ -46,9 +54,9 @@ const BAC_SERIES: Record<BacType, Record<string, BacCategory>> = {
 };
 
 const SERIES_GROUPS = {
-  scientifiqueTechnique: ['c', 'd', 's', 'tgc', 'tgi'],
+  scientifiqueTechnique: ['c', 'd', 's', 'tgc', 'tgi', 'ose'],
 
-  scientifiqueAgricole: ['c', 'd', 's', 'taef'],
+  scientifiqueAgricole: ['c', 'd', 's', 'taef', 'ose'],
 
   toutesSeries: ['a1', 'a2', 'c', 'd', 'l', 's', 'ose', 'tgc', 'tgi', 'taef', 'tter'],
 } as const;

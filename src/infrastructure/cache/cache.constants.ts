@@ -14,6 +14,8 @@ export const CACHE_RESOURCE = {
   ressourcesHumaines: 'ressources-humaines',
   settings: 'settings',
   dashboard: 'dashboard',
+  mentions: 'mentions',
+  parcours: 'parcours',
 } as const;
 
 export type CacheResource = (typeof CACHE_RESOURCE)[keyof typeof CACHE_RESOURCE];

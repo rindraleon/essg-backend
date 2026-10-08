@@ -1,10 +1,13 @@
 import {
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Parcours } from '../../mentions/entities/parcours.entity';
 
 /** Valeur par défaut des colonnes simple-json en liste vide. */
 const EMPTY_ARRAY_DEFAULT = '[]';
@@ -20,11 +23,29 @@ export class Formation {
   @Column({ unique: true })
   slug!: string;
 
+  /**
+   * Miroir déprécié, calculé automatiquement depuis le parcours rattaché
+   * (source de vérité : `parcoursId` → `parcours.mention`). Conservé pour la
+   * compatibilité des lecteurs publics (front-office, admissions).
+   */
   @Column({ type: 'varchar', length: 150, nullable: true })
   mention!: string;
 
+  /** Domaine de rattachement — miroir recalculé depuis la mention du parcours. */
   @Column({ type: SIMPLE_JSON, default: EMPTY_ARRAY_DEFAULT })
   domaine!: string[];
+
+  /** Identifiant du parcours rattaché (hiérarchie Domaine → Mention → Parcours → Formation). */
+  @Column({ type: 'int', nullable: true })
+  parcoursId!: number | null;
+
+  /**
+   * Parcours rattaché : la mention d'une formation se déduit toujours de son
+   * parcours — jamais de relation dupliquée stockée indépendamment.
+   */
+  @ManyToOne(() => Parcours, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'parcoursId' })
+  parcours?: Parcours | null;
 
   @Column()
   titre!: string;
