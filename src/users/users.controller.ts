@@ -143,7 +143,22 @@ export class UsersController {
     if (req.user.role !== 'admin' && req.user.userId !== id) {
       throw new ForbiddenException('Vous ne pouvez modifier que votre propre profil');
     }
-    return this.service.update(id, dto);
+    if (req.user.role === 'admin') {
+      return this.service.update(id, dto);
+    }
+
+    const current = await this.service.findOne(id);
+    if (dto.role !== undefined && dto.role !== current.role) {
+      throw new ForbiddenException('Seul un administrateur peut modifier le rôle d’un compte.');
+    }
+    if (dto.estActif !== undefined && dto.estActif !== current.estActif) {
+      throw new ForbiddenException('Seul un administrateur peut activer ou désactiver un compte.');
+    }
+    const selfUpdate: UpdateUtilisateurDto = { ...dto };
+    delete selfUpdate.role;
+    delete selfUpdate.estActif;
+    delete selfUpdate.avatar;
+    return this.service.update(id, selfUpdate);
   }
 
   @Post(':id/avatar')

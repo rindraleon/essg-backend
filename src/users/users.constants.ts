@@ -4,8 +4,68 @@ export const PASSWORD_SALT_ROUNDS = 10;
 
 export const USERS_TABLE = 'users';
 
-export const USER_ROLES = ['admin', 'editeur', 'lecteur'] as const;
+export const USER_ROLES = ['admin', 'editeur', 'scolarite', 'lecteur'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+
+export const PERMISSIONS = {
+  DASHBOARD_VIEW: 'dashboard.view',
+  CONTENT_VIEW: 'content.view',
+  CONTENT_CREATE: 'content.create',
+  CONTENT_UPDATE: 'content.update',
+  CONTENT_DELETE: 'content.delete',
+  MEDIA_UPLOAD: 'media.upload',
+  ADMISSION_VIEW: 'admission.view',
+  ADMISSION_DOWNLOAD: 'admission.download',
+  ADMISSION_MANAGE: 'admission.manage',
+  ADMISSION_DELETE: 'admission.delete',
+  CONTACT_VIEW: 'contact.view',
+  CONTACT_MANAGE: 'contact.manage',
+  CONTACT_DELETE: 'contact.delete',
+  SETTINGS_ADMISSION: 'settings.admission',
+} as const;
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+const ALL_PERMISSIONS: readonly Permission[] = Object.values(PERMISSIONS);
+
+const EDITORIAL_PERMISSIONS: readonly Permission[] = [
+  PERMISSIONS.DASHBOARD_VIEW,
+  PERMISSIONS.CONTENT_VIEW,
+  PERMISSIONS.CONTENT_CREATE,
+  PERMISSIONS.CONTENT_UPDATE,
+  PERMISSIONS.CONTENT_DELETE,
+  PERMISSIONS.MEDIA_UPLOAD,
+];
+
+export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
+  admin: ALL_PERMISSIONS,
+  editeur: EDITORIAL_PERMISSIONS,
+  scolarite: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    PERMISSIONS.ADMISSION_VIEW,
+    PERMISSIONS.ADMISSION_DOWNLOAD,
+    PERMISSIONS.CONTACT_VIEW,
+    PERMISSIONS.CONTACT_MANAGE,
+    PERMISSIONS.SETTINGS_ADMISSION,
+  ],
+  lecteur: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.CONTENT_VIEW],
+};
+
+export function permissionsForRole(role: string | null | undefined): readonly Permission[] {
+  if (!role || !Object.hasOwn(ROLE_PERMISSIONS, role)) return [];
+  return ROLE_PERMISSIONS[role as UserRole];
+}
+
+export function roleHasPermission(
+  role: string | null | undefined,
+  permission: Permission,
+): boolean {
+  return permissionsForRole(role).includes(permission);
+}
+
+export function rolesWithPermission(permission: Permission): UserRole[] {
+  return USER_ROLES.filter((role) => ROLE_PERMISSIONS[role].includes(permission));
+}
 
 export interface DefaultAdminCredentials {
   email: string;

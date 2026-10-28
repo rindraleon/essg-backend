@@ -19,6 +19,9 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestj
 import { ApiMessage } from '../common/decorators/api-message.decorator';
 import { QueryPartnerDto } from './dto/query-partner.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '../users/users.constants';
 import { ImageUploadService } from '../common/images/image-upload.service';
 import { imageUploadOptions } from '../common/storage/multer.config';
 import { STORAGE_PREFIXES } from '../common/storage/storage.constants';
@@ -98,7 +101,8 @@ export class PartnersController {
   }
 
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_CREATE)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -123,7 +127,8 @@ export class PartnersController {
   }
 
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_UPDATE)
   @Put(':id')
   @ApiOperation({
     summary: 'Mettre à jour un partenaire',
@@ -154,7 +159,8 @@ export class PartnersController {
   }
 
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_DELETE)
   @Delete(':id')
   @ApiOperation({
     summary: 'Supprimer un partenaire',

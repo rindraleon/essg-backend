@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { IsValidEmail } from '../../common/validators/contact.validators';
 import { IsValidPersonName } from '../../common/validators/person.validators';
+import { USER_ROLES, type UserRole } from '../users.constants';
 
 export class CreateUtilisateurDto {
   @IsValidEmail()
@@ -33,9 +34,9 @@ export class CreateUtilisateurDto {
   @MaxLength(100)
   prenom!: string;
 
-  @IsIn(['admin', 'editeur', 'lecteur'])
+  @IsIn(USER_ROLES)
   @IsOptional()
-  role?: 'admin' | 'editeur' | 'lecteur';
+  role?: UserRole;
 
   @IsBoolean()
   @IsOptional()

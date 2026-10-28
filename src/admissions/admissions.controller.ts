@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -21,6 +22,11 @@ import { memoryStorage } from 'multer';
 import { ApiMessage } from '../common/decorators/api-message.decorator';
 import { SkipTransform } from '../common/decorators/skip-transform.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { CurrentUser, type AuthUser } from '../common/decorators/current-user.decorator';
+import { PERMISSIONS, roleHasPermission } from '../users/users.constants';
+import { API_SIGNATURE, API_SIGNATURE_HEADER } from '../common/constants/api.constants';
 import { documentUploadOptions, proofUploadOptions } from '../common/storage/multer.config';
 import { StorageService } from '../common/storage/storage.service';
 import { AdmissionFileType } from './entities/admission-file.entity';
@@ -122,6 +128,10 @@ function sanitizeFilename(filename: string): string {
     .slice(0, 120);
 }
 
+function attachmentDisposition(filename: string): string {
+  return `attachment; filename="${sanitizeFilename(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
 @ApiTags('Admissions')
 @Controller('admissions')
 export class AdmissionsController {
@@ -150,9 +160,9 @@ export class AdmissionsController {
   ) {
     const uploaded: Record<string, AdmissionUploadedFile> = {};
 
-    for (const field of FILE_FIELDS) {
+    await Promise.all(FILE_FIELDS.map(async (field) => {
       const file = files?.[field.name]?.[0];
-      if (!file) continue;
+      if (!file) return;
       const result = await this.storageService.uploadPrivate(file.buffer, file.originalname, {
         mimetype: file.mimetype,
         prefix: FILE_PREFIXES[field.name],
@@ -164,7 +174,7 @@ export class AdmissionsController {
         mimetype: file.mimetype,
         objectPath: result.objectName,
       };
-    }
+    }));
 
     return this.admissionsService.create(createAdmissionDto, uploaded);
   }
@@ -190,7 +200,8 @@ export class AdmissionsController {
     });
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_VIEW)
   @Get()
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -204,7 +215,8 @@ export class AdmissionsController {
     return this.admissionsService.findAll(query);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_VIEW)
   @Get('search')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -218,7 +230,8 @@ export class AdmissionsController {
     return this.admissionsService.findAll(query);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_DOWNLOAD)
   @Get(':id/documents/:kind')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -255,7 +268,8 @@ export class AdmissionsController {
     res.send(file.buffer);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_VIEW)
   @Get(':id/files')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -269,7 +283,41 @@ export class AdmissionsController {
     return this.admissionsService.getFiles(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_DOWNLOAD)
+  @Get(':id/files/archive')
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
+  @ApiOperation({
+    summary: 'Télécharger toutes les pièces d’une candidature (archive ZIP)',
+    description:
+      'Archive ZIP générée côté serveur avec toutes les pièces de la candidature, nommées lisiblement (`01-demande-inscription.pdf`, `05-releve-bac.pdf`…). Les pièces introuvables dans le stockage sont journalisées et listées dans `pieces-manquantes.txt` ; leur nombre est indiqué par l’en-tête `X-Archive-Missing-Files`. Réponse `404` si la candidature n’a aucune pièce, `503` si aucune pièce ne peut être lue.',
+  })
+  @ApiParam({ name: 'id', example: 12 })
+  @ApiStandardErrors({ auth: true, notFound: true })
+  @SkipTransform()
+  async downloadFilesArchive(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ): Promise<void> {
+    const archive = await this.admissionsService.buildFilesArchive(id);
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', attachmentDisposition(archive.filename));
+    res.setHeader('Content-Length', String(archive.buffer.length));
+    res.setHeader('X-Archive-File-Count', String(archive.fileCount));
+    res.setHeader('X-Archive-Missing-Files', String(archive.missingCount));
+    res.setHeader(API_SIGNATURE_HEADER, API_SIGNATURE);
+    res.setHeader(
+      'Access-Control-Expose-Headers',
+      'Content-Disposition, X-Archive-File-Count, X-Archive-Missing-Files',
+    );
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(archive.buffer);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_VIEW)
   @Get(':id/files/:fileId')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -284,11 +332,18 @@ export class AdmissionsController {
     @Param('id', ParseIntPipe) id: number,
     @Param('fileId', ParseIntPipe) fileId: number,
     @Query('download') download: string | undefined,
+    @CurrentUser() user: AuthUser,
     @Res() res: Response,
   ): Promise<void> {
     const file = await this.admissionsService.getFile(id, fileId);
     const wantsDownload = download === '1' || download === 'true';
     const disposition = wantsDownload || !file.inlineViewable ? 'attachment' : 'inline';
+    if (
+      disposition === 'attachment' &&
+      !roleHasPermission(user.role, PERMISSIONS.ADMISSION_DOWNLOAD)
+    ) {
+      throw new ForbiddenException("Vous n'avez pas les permissions nécessaires");
+    }
 
     res.setHeader('Content-Type', file.mimetype);
     res.setHeader(
@@ -306,7 +361,8 @@ export class AdmissionsController {
     res.send(file.buffer);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_DELETE)
   @Delete(':id/files/:fileId')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -320,7 +376,8 @@ export class AdmissionsController {
     return this.admissionsService.removeFile(id, fileId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_VIEW)
   @Get(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -334,7 +391,8 @@ export class AdmissionsController {
     return this.admissionsService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_MANAGE)
   @Patch(':id/status')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -352,7 +410,8 @@ export class AdmissionsController {
     return this.admissionsService.updateStatus(id, updateAdmissionStatusDto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ADMISSION_DELETE)
   @Delete(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({

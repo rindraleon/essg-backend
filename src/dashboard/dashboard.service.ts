@@ -12,6 +12,7 @@ import { Message } from '../messages/entities/message.entity';
 import { CacheService } from '../infrastructure/cache/cache.service';
 import { CACHE_RESOURCE, CACHE_TTL } from '../infrastructure/cache/cache.constants';
 import { formatDateLong } from '../common/utils/french-date.util';
+import { PERMISSIONS, roleHasPermission } from '../users/users.constants';
 
 export interface DashboardStats {
   totalUsers: number;
@@ -38,6 +39,18 @@ export interface Activity {
 export interface Overview {
   stats: DashboardStats;
   recentActivities: Activity[];
+}
+
+export function limitDashboardStats(
+  stats: DashboardStats,
+  role: string | null | undefined,
+): Partial<DashboardStats> {
+  const { totalAdmissions, totalContacts, ...shared } = stats;
+  return {
+    ...shared,
+    ...(roleHasPermission(role, PERMISSIONS.ADMISSION_VIEW) ? { totalAdmissions } : {}),
+    ...(roleHasPermission(role, PERMISSIONS.CONTACT_VIEW) ? { totalContacts } : {}),
+  };
 }
 
 @Injectable()

@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { UserRole } from '../users.constants';
 
 @Entity('users')
 export class Utilisateur {
@@ -23,8 +24,9 @@ export class Utilisateur {
   @Column()
   nom: string;
 
-  @Column({ default: 'admin' })
-  role: 'admin' | 'editeur' | 'lecteur';
+  // Type explicite : l'alias UserRole n'est pas réfléchi par TypeORM. varchar(20) correspond au schéma existant.
+  @Column({ type: 'varchar', length: 20, default: 'admin' })
+  role: UserRole;
 
   @Column({ default: true })
   estActif: boolean;

@@ -15,6 +15,9 @@ import {
 import { ApiMessage } from '../common/decorators/api-message.decorator';
 import { CurrentUser, type AuthUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '../users/users.constants';
 import { CreateMessageDto, UpdateMessageDto } from './dto/create-message.dto';
 import { QueryMessageDto } from './dto/query-message.dto';
 import { ReplyMessageDto } from './dto/reply-message.dto';
@@ -37,7 +40,8 @@ import {
 export class MessagesController {
   constructor(private readonly service: MessagesService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTACT_VIEW)
   @Get()
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -54,7 +58,8 @@ export class MessagesController {
     return this.service.findAll(query);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTACT_VIEW)
   @Get('search')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -83,7 +88,8 @@ export class MessagesController {
     return this.service.verifyEmail(email);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTACT_VIEW)
   @Get(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -113,7 +119,8 @@ export class MessagesController {
     return this.service.create(dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTACT_MANAGE)
   @Post(':id/reply')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -131,7 +138,8 @@ export class MessagesController {
     return this.service.reply(id, dto, user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTACT_MANAGE)
   @Put(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -149,7 +157,8 @@ export class MessagesController {
     return this.service.update(id, dto, user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTACT_DELETE)
   @Delete(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({

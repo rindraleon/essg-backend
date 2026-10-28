@@ -14,6 +14,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ApiMessage } from '../common/decorators/api-message.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '../users/users.constants';
 import { imageUploadOptions } from '../common/storage/multer.config';
 import { STORAGE_PREFIXES } from '../common/storage/storage.constants';
 import {
@@ -31,7 +34,8 @@ import { API_BEARER_AUTH_NAME } from '../common/swagger/swagger.constants';
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.MEDIA_UPLOAD)
   @Post('image')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -77,7 +81,8 @@ export class UploadController {
     return this.uploadService.uploadImage(file, folder);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.MEDIA_UPLOAD)
   @Post('presign')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({

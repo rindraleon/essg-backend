@@ -15,6 +15,9 @@ import {
 import { ApiMessage } from '../common/decorators/api-message.decorator';
 import { QueryRessourceHumaineDto } from './dto/query-ressource-humaine.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '../users/users.constants';
 import {
   CreateRessourceHumaineDto,
   UpdateRessourceHumaineDto,
@@ -84,7 +87,8 @@ export class RessourcesHumainesController {
     return this.service.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_CREATE)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
@@ -100,7 +104,8 @@ export class RessourcesHumainesController {
     return this.service.create(dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_UPDATE)
   @Put(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -114,7 +119,8 @@ export class RessourcesHumainesController {
     return this.service.update(id, dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_DELETE)
   @Delete(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({

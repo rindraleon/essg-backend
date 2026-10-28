@@ -1,7 +1,11 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiMessage } from '../common/decorators/api-message.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { DashboardService } from './dashboard.service';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { CurrentUser, type AuthUser } from '../common/decorators/current-user.decorator';
+import { PERMISSIONS } from '../users/users.constants';
+import { DashboardService, limitDashboardStats } from './dashboard.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiStandardErrors, ApiStandardResponse } from '../common/swagger/api-response.decorator';
 import {
@@ -15,7 +19,8 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('stats')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.DASHBOARD_VIEW)
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Statistiques du Back-Office',
@@ -24,12 +29,13 @@ export class DashboardController {
   @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true })
   @ApiMessage('Statistiques récupérées')
-  getStats() {
-    return this.dashboardService.getStats();
+  async getStats(@CurrentUser() user: AuthUser) {
+    return limitDashboardStats(await this.dashboardService.getStats(), user.role);
   }
 
   @Get('recent-activities')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.DASHBOARD_VIEW)
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Activités récentes',
@@ -43,7 +49,8 @@ export class DashboardController {
   }
 
   @Get('overview')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.DASHBOARD_VIEW)
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: "Vue d'ensemble",
@@ -52,8 +59,9 @@ export class DashboardController {
   @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true })
   @ApiMessage('Aperçu récupéré')
-  getOverview() {
-    return this.dashboardService.getOverview();
+  async getOverview(@CurrentUser() user: AuthUser) {
+    const overview = await this.dashboardService.getOverview();
+    return { ...overview, stats: limitDashboardStats(overview.stats, user.role) };
   }
 
   @Get('public/stats')

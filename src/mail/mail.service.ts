@@ -32,7 +32,7 @@ import {
   renderAdminContactNotificationTemplate,
 } from './templates/admin-contact-notification.template';
 import { htmlToText, MAIL_ERROR, toMailHttpException } from './mail.errors';
-import { checkEmailSyntax } from '../common/email/email-format.util';
+import { checkEmailSyntax, mergeEmailRecipients } from '../common/email/email-format.util';
 import { formatDateLong } from '../common/utils/french-date.util';
 
 export interface SendEmailOptions {
@@ -55,7 +55,7 @@ export class MailService implements OnModuleInit {
   private readonly configured: boolean;
 
   constructor(private readonly configService: ConfigService) {
-    const host = this.readString('SMTP_HOST', 'smtp.gmail.com');
+    const host = this.readString('SMTP_HOST', 'smtp-relay.brevo.com');
     const port = this.readNumber('SMTP_PORT', 587);
     const secure = port === 465;
     const user = this.readString('SMTP_USER', '');
@@ -270,26 +270,34 @@ export class MailService implements OnModuleInit {
 
   async sendAdminsContactNotification(
     data: Omit<AdminContactNotificationData, 'backOfficeUrl'>,
+    recipients: readonly string[] = [],
   ): Promise<void> {
-    await this.notifyAdmins({
-      subject: 'Nouveau message de contact — ESSG',
-      html: renderAdminContactNotificationTemplate({
-        ...data,
-        backOfficeUrl: this.backOfficeUrl,
-      }),
-    });
+    await this.notifyAdmins(
+      {
+        subject: 'Nouveau message de contact — ESSG',
+        html: renderAdminContactNotificationTemplate({
+          ...data,
+          backOfficeUrl: this.backOfficeUrl,
+        }),
+      },
+      recipients,
+    );
   }
 
   async sendAdminsAdmissionNotification(
     data: Omit<AdminAdmissionNotificationData, 'backOfficeUrl'>,
+    recipients: readonly string[] = [],
   ): Promise<void> {
-    await this.notifyAdmins({
-      subject: 'Nouvelle candidature reçue — ESSG',
-      html: renderAdminAdmissionNotificationTemplate({
-        ...data,
-        backOfficeUrl: this.backOfficeUrl,
-      }),
-    });
+    await this.notifyAdmins(
+      {
+        subject: 'Nouvelle candidature reçue — ESSG',
+        html: renderAdminAdmissionNotificationTemplate({
+          ...data,
+          backOfficeUrl: this.backOfficeUrl,
+        }),
+      },
+      recipients,
+    );
   }
 
   async sendMessageReplyEmail(options: {
@@ -312,20 +320,24 @@ export class MailService implements OnModuleInit {
     });
   }
 
-  private async notifyAdmins(options: {
-    subject: string;
-    html: string;
-    text?: string;
-  }): Promise<void> {
-    if (this.adminNotifyEmails.length === 0) {
+  private async notifyAdmins(
+    options: {
+      subject: string;
+      html: string;
+      text?: string;
+    },
+    extraRecipients: readonly string[] = [],
+  ): Promise<void> {
+    const recipients = mergeEmailRecipients(this.adminNotifyEmails, extraRecipients);
+    if (recipients.length === 0) {
       this.logger.warn(
-        'Aucun destinataire administrateur configuré (ADMIN_NOTIFY_EMAILS) — notification ignorée',
+        'Aucun destinataire administrateur configuré (ADMIN_NOTIFY_EMAILS ou compte autorisé) — notification ignorée',
       );
       return;
     }
 
-    let sent = 0;
-    for (const to of this.adminNotifyEmails) {
+    const results = await Promise.all(
+      recipients.map(async (to) => {
       try {
         await this.sendEmail({
           to,
@@ -333,16 +345,18 @@ export class MailService implements OnModuleInit {
           html: options.html,
           text: options.text,
         });
-        sent += 1;
+        return true;
       } catch (error) {
         this.logger.error(
           `Échec de la notification administrateur vers ${to}`,
           error instanceof Error ? error.stack : error,
         );
+        return false;
       }
-    }
+      }),
+    );
 
-    if (sent === 0) {
+    if (!results.some(Boolean)) {
       throw new ServiceUnavailableException(MAIL_ERROR.SEND_FAILED);
     }
   }

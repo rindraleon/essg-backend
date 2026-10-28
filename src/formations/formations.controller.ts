@@ -15,6 +15,9 @@ import {
 import { ApiMessage } from '../common/decorators/api-message.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '../users/users.constants';
 import { CreateFormationDto, UpdateFormationDto } from './dto/create-formation.dto';
 import { FormationsService } from './formations.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -95,7 +98,8 @@ export class FormationsController {
     return this.service.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_CREATE)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
@@ -111,7 +115,8 @@ export class FormationsController {
     return this.service.create(dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_UPDATE)
   @Put(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
@@ -125,7 +130,8 @@ export class FormationsController {
     return this.service.update(id, dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.CONTENT_DELETE)
   @Delete(':id')
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({

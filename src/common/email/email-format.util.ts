@@ -109,3 +109,17 @@ export function checkEmailSyntax(email: unknown): EmailSyntaxResult {
   }
   return { valid: true, email: normalized, reason: null };
 }
+
+export function mergeEmailRecipients(...lists: readonly (readonly string[])[]): string[] {
+  const seen = new Set<string>();
+  const recipients: string[] = [];
+  for (const list of lists) {
+    for (const raw of list) {
+      const result = checkEmailSyntax(raw);
+      if (!result.valid || seen.has(result.email)) continue;
+      seen.add(result.email);
+      recipients.push(result.email);
+    }
+  }
+  return recipients;
+}

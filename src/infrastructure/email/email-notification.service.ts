@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
 import { MailService } from '../../mail/mail.service';
+import { Utilisateur } from '../../users/entities/user.entity';
+import { PERMISSIONS, rolesWithPermission, type Permission } from '../../users/users.constants';
 import type {
   AdmissionAdminNotification,
   AdmissionConfirmationNotification,
@@ -14,7 +18,11 @@ import type {
 export class EmailNotificationService {
   private readonly logger = new Logger(EmailNotificationService.name);
 
-  constructor(private readonly mailService: MailService) {}
+  constructor(
+    private readonly mailService: MailService,
+    @InjectRepository(Utilisateur)
+    private readonly usersRepository: Repository<Utilisateur>,
+  ) {}
 
   async sendAdmissionConfirmation(data: AdmissionConfirmationNotification): Promise<void> {
     await this.safeSend('accusé de réception admission', data.email, () =>
@@ -35,8 +43,11 @@ export class EmailNotificationService {
   }
 
   async sendAdmissionAdminNotification(data: AdmissionAdminNotification): Promise<void> {
-    await this.safeSend('notification admission administrateurs', data.email, () =>
-      this.mailService.sendAdminsAdmissionNotification(data),
+    await this.safeSend('notification admission administrateurs', data.email, async () =>
+      this.mailService.sendAdminsAdmissionNotification(
+        data,
+        await this.findAlertRecipients(PERMISSIONS.ADMISSION_VIEW),
+      ),
     );
   }
 
@@ -55,8 +66,11 @@ export class EmailNotificationService {
   }
 
   async sendContactAdminNotification(data: ContactAdminNotification): Promise<void> {
-    await this.safeSend('notification contact administrateurs', data.email, () =>
-      this.mailService.sendAdminsContactNotification(data),
+    await this.safeSend('notification contact administrateurs', data.email, async () =>
+      this.mailService.sendAdminsContactNotification(
+        data,
+        await this.findAlertRecipients(PERMISSIONS.CONTACT_VIEW),
+      ),
     );
   }
 
@@ -70,6 +84,23 @@ export class EmailNotificationService {
     await this.safeSend('bienvenue utilisateur', data.email, () =>
       this.mailService.sendWelcomeEmail(data.email, data.nom, data.prenom, data.motDePasse),
     );
+  }
+
+  private async findAlertRecipients(permission: Permission): Promise<string[]> {
+    const roles = rolesWithPermission(permission);
+    if (roles.length === 0) return [];
+    try {
+      const users = await this.usersRepository.find({
+        select: { email: true },
+        where: { estActif: true, role: In(roles) },
+      });
+      return users.map((user) => user.email);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Lecture des destinataires d'alertes impossible : ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
   }
 
   private async safeSend(

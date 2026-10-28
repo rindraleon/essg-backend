@@ -1,6 +1,9 @@
 import { Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '../../users/users.constants';
 import { ApiMessage } from '../../common/decorators/api-message.decorator';
 import { CurrentUser, type AuthUser } from '../../common/decorators/current-user.decorator';
 import {
@@ -12,12 +15,13 @@ import { API_BEARER_AUTH_NAME } from '../../common/swagger/swagger.constants';
 
 @ApiTags('Admissions - Vérification')
 @Controller('admissions/:id/verification')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth(API_BEARER_AUTH_NAME)
 export class AdmissionsVerificationController {
   constructor(private readonly verificationService: AdmissionDocumentVerificationService) {}
 
   @Post()
+  @RequirePermissions(PERMISSIONS.ADMISSION_MANAGE)
   @ApiOperation({
     summary: 'Vérifier les pièces d’une candidature',
     description:
@@ -34,6 +38,7 @@ export class AdmissionsVerificationController {
   }
 
   @Get('history')
+  @RequirePermissions(PERMISSIONS.ADMISSION_VIEW)
   @ApiOperation({ summary: 'Historique des vérifications d’une candidature' })
   @ApiParam({ name: 'id', type: Number })
   @ApiStandardResponse(undefined, { description: 'Historique récupéré' })
@@ -44,6 +49,7 @@ export class AdmissionsVerificationController {
   }
 
   @Get('latest')
+  @RequirePermissions(PERMISSIONS.ADMISSION_VIEW)
   @ApiOperation({ summary: 'Dernière vérification d’une candidature' })
   @ApiParam({ name: 'id', type: Number })
   @ApiStandardResponse(undefined, { description: 'Dernière vérification' })
@@ -54,6 +60,7 @@ export class AdmissionsVerificationController {
   }
 
   @Get(':verificationId')
+  @RequirePermissions(PERMISSIONS.ADMISSION_VIEW)
   @ApiOperation({ summary: 'Détail d’une vérification' })
   @ApiParam({ name: 'id', type: Number })
   @ApiParam({ name: 'verificationId', type: Number })

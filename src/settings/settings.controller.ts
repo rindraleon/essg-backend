@@ -1,8 +1,9 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Patch, UseGuards } from '@nestjs/common';
 import { ApiMessage } from '../common/decorators/api-message.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '../users/users.constants';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { SettingsService } from './settings.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -29,12 +30,14 @@ export class SettingsController {
     return this.settingsService.getPublic();
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.SETTINGS_ADMISSION)
   @Get()
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Paramètres complets',
-    description: 'Ensemble des paramètres, y compris ceux réservés au Back-Office.',
+    description:
+      'Paramètres réservés au Back-Office. Accessible avec la permission `settings.admission` (rôles administrateur et scolarité).',
   })
   @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true })
@@ -43,14 +46,15 @@ export class SettingsController {
     return this.settingsService.get();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.SETTINGS_ADMISSION)
   @Patch()
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth(API_BEARER_AUTH_NAME)
   @ApiOperation({
     summary: 'Mettre à jour les paramètres',
-    description: 'Réservé au rôle `admin`. Mise à jour partielle (PATCH).',
+    description:
+      'Réservé aux comptes disposant de la permission `settings.admission`. Mise à jour partielle (PATCH).',
   })
   @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
   @ApiStandardErrors({ auth: true, conflict: true })

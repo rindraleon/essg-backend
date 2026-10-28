@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../../auth/auth.service';
 import { JwtPayload } from '../../auth/jwt-payload.interface';
 import { SessionsService } from '../../sessions/sessions.service';
+import { type Permission, permissionsForRole } from '../../users/users.constants';
 
 export interface AuthenticatedUser {
   userId: number;
@@ -14,6 +15,7 @@ export interface AuthenticatedUser {
   nom: string;
   avatar?: string;
   sessionId?: string;
+  permissions: Permission[];
 }
 
 @Injectable()
@@ -50,6 +52,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       nom: user.nom,
       avatar: user.avatar || undefined,
       sessionId: payload.sid,
+      permissions: [...permissionsForRole(user.role)],
     };
   }
 }

@@ -6,6 +6,11 @@ import { API_SIGNATURE, API_SIGNATURE_HEADER } from '../common/constants/api.con
 import { isPrivateObjectKey } from '../common/storage/storage.constants';
 import { StorageService } from '../common/storage/storage.service';
 
+function isServableKey(key: string): boolean {
+  if (!key || key.includes('\\')) return false;
+  return key.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
+}
+
 @ApiTags('Upload & médias')
 @Controller('media')
 export class MediaController {
@@ -30,7 +35,7 @@ export class MediaController {
       .filter(Boolean)
       .join('/');
 
-    if (!key || key.includes('..') || isPrivateObjectKey(key)) {
+    if (!isServableKey(key) || isPrivateObjectKey(key)) {
       throw new NotFoundException('Fichier introuvable');
     }
 

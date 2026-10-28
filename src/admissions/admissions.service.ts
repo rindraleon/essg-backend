@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +14,7 @@ import { StorageService } from '../common/storage/storage.service';
 import { ILIKE_ESCAPE, buildIlikeTerm, sanitizeSortField } from '../common/utils/search.util';
 import { buildPaginatedData } from '../common/utils/pagination.util';
 import { detectFileType, withDetectedExtension } from '../common/utils/file-type.util';
+import { createZipBuffer, type ZipEntry } from '../common/utils/zip.util';
 import { EmailGuardService } from '../common/email/email-guard.service';
 import { EmailNotificationService } from '../infrastructure/email/email-notification.service';
 import { SettingsService } from '../settings/settings.service';
@@ -25,12 +27,30 @@ import { QueryAdmissionDto } from './dto/query-admission.dto';
 import { UpdateAdmissionStatusDto } from './dto/update-admission-status.dto';
 import { Admission, AdmissionStatus } from './entities/admission.entity';
 import { AdmissionFile, AdmissionFileType } from './entities/admission-file.entity';
+import {
+  buildAdmissionArchiveFilename,
+  buildArchiveEntryNames,
+  buildMissingFilesManifest,
+} from './admission-archive.util';
 
 export interface AdmissionDocumentFile {
   buffer: Buffer;
   filename: string;
   mimetype: string;
   inlineViewable: boolean;
+}
+
+export interface AdmissionFilesArchive {
+  buffer: Buffer;
+  filename: string;
+  fileCount: number;
+  missingCount: number;
+}
+
+interface ArchiveSource {
+  type: AdmissionFileType;
+  extension: string;
+  buffer: Buffer;
 }
 
 export interface AdmissionUploadedFile {
@@ -137,9 +157,7 @@ export class AdmissionsService {
     telephoneDisponible?: boolean;
     annee?: number;
   }> {
-    // Seule l'unicité du bordereau est conservée. Email et téléphone ne bloquent plus la candidature.
-    // On conserve les champs emailDisponible/telephoneDisponible pour compatibilité ascendante,
-    // mais ils retournent toujours true (disponible).
+    
     const result: {
       numeroBordereauDisponible?: boolean;
       emailDisponible?: boolean;
@@ -160,8 +178,6 @@ export class AdmissionsService {
       result.numeroBordereauDisponible = !found;
     }
 
-    // Compatibilité : l'appelant peut encore interroger email/téléphone, mais on ne considère plus
-    // cela comme bloquant. On retourne disponible = true pour ne pas déclencher d'erreur front.
     if (dto.email !== undefined) result.emailDisponible = true;
     if (dto.telephone !== undefined) result.telephoneDisponible = true;
     if (dto.email || dto.telephone) {
@@ -192,7 +208,6 @@ export class AdmissionsService {
     ) {
       throw new ConflictException('Ce numéro de bordereau de versement est déjà utilisé.');
     }
-    // Fallback: toute violation d'unicité restante est liée au bordereau (seule contrainte restante)
     if (
       constraint.startsWith('IDX_admissions_numeroBordereau') ||
       constraint === 'UQ_admissions_numeroBordereau'
@@ -486,6 +501,64 @@ export class AdmissionsService {
       mimetype: detected.mimetype,
       inlineViewable: detected.inlineViewable,
     };
+  }
+
+  async buildFilesArchive(id: number): Promise<AdmissionFilesArchive> {
+    const admission = await this.findOne(id);
+    const files = await this.filesRepository.find({
+      where: { admissionId: admission.id },
+      order: { creeLe: 'ASC', id: 'ASC' },
+    });
+    if (files.length === 0) {
+      throw new NotFoundException('Aucune pièce jointe disponible pour cette candidature.');
+    }
+
+    const loaded = await Promise.all(files.map((file) => this.loadArchiveSource(admission, file)));
+    const sources = loaded.filter((source): source is ArchiveSource => source !== null);
+    const missing = files.filter((_, index) => loaded[index] === null);
+
+    if (sources.length === 0) {
+      throw new ServiceUnavailableException(
+        'Impossible de récupérer les pièces jointes depuis le stockage. Veuillez réessayer plus tard.',
+      );
+    }
+
+    const names = buildArchiveEntryNames(sources);
+    const entries: ZipEntry[] = sources.map((source, index) => ({
+      name: names[index],
+      data: source.buffer,
+    }));
+    if (missing.length > 0) {
+      const labels = missing.map((file) => ADMISSION_FILE_LABELS[file.type] ?? file.type);
+      entries.push({
+        name: 'pieces-manquantes.txt',
+        data: Buffer.from(buildMissingFilesManifest(labels), 'utf8'),
+      });
+    }
+
+    return {
+      buffer: await createZipBuffer(entries),
+      filename: buildAdmissionArchiveFilename(admission),
+      fileCount: sources.length,
+      missingCount: missing.length,
+    };
+  }
+
+  private async loadArchiveSource(
+    admission: Admission,
+    file: AdmissionFile,
+  ): Promise<ArchiveSource | null> {
+    try {
+      const buffer = await this.storageService.download(file.objectPath);
+      const detected = detectFileType(buffer, file.mimetype);
+      return { type: file.type, extension: detected.extension, buffer };
+    } catch (error: unknown) {
+      this.logger.error(
+        `Pièce « ${file.type} » (fichier ${file.id}) de la candidature ${admission.id} introuvable dans le stockage — exclue de l'archive`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return null;
+    }
   }
 
   async removeFile(id: number, fileId: number): Promise<void> {

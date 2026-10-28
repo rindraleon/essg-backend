@@ -74,7 +74,7 @@ export class CreateAdmissionDto {
     message: "L'adresse contient des caractères non autorisés.",
   })
   @IsNotEmpty({ message: "L'adresse est obligatoire." })
-  @MaxLength(255)
+  @MaxLength(2100)
   adresse!: string;
 
   @IsString()
@@ -83,7 +83,7 @@ export class CreateAdmissionDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
+  @MaxLength(100)
   formation!: string;
 
   @IsString()
@@ -119,7 +119,7 @@ export class CreateAdmissionDto {
 
   @IsValidPlaceName('Veuillez saisir un centre d’examen valide.')
   @IsNotEmpty({ message: "Le centre d'examen est obligatoire." })
-  @MaxLength(255)
+  @MaxLength(2100)
   bacCentreExamen!: string;
 
   @IsString()
@@ -129,12 +129,12 @@ export class CreateAdmissionDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
+  @MaxLength(100)
   parcours!: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(55)
+  @MaxLength(100)
   ancienEtablissement?: string;
 
   @IsOptional()
@@ -144,12 +144,12 @@ export class CreateAdmissionDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(55)
+  @MaxLength(100)
   licenceEtablissement?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(55)
+  @MaxLength(100)
   licenceMention?: string;
 
   @IsOptional()
@@ -175,12 +175,12 @@ export class CreateAdmissionDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(255)
+  @MaxLength(2100)
   cvPath?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(255)
+  @MaxLength(2100)
   lettreMotivationPath?: string;
 
   @IsOptional()
