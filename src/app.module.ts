@@ -23,6 +23,7 @@ import { MentionsModule } from './mentions/mentions.module';
 import { MessagesModule } from './messages/messages.module';
 import { ActivityLogsModule } from './activity-logs/activity-log.module';
 import { NewsModule } from './news/news.module';
+import { ResultsModule } from './results/results.module';
 import { PartnersModule } from './parteners/partners.module';
 import { ProjectsModule } from './projects/projects.module';
 import { RessourcesHumainesModule } from './ressources-humaines/ressources-humaines.module';
@@ -61,6 +62,7 @@ import { UsersModule } from './users/users.module';
     AdmissionsModule,
     ActivityLogsModule,
     SettingsModule,
+    ResultsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_INTERCEPTOR, useClass: PerformanceInterceptor }],

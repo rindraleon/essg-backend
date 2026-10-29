@@ -22,6 +22,12 @@ export const PERMISSIONS = {
   CONTACT_MANAGE: 'contact.manage',
   CONTACT_DELETE: 'contact.delete',
   SETTINGS_ADMISSION: 'settings.admission',
+  SETTINGS_NAVIGATION: 'settings.navigation',
+  RESULTAT_VIEW: 'resultat.view',
+  RESULTAT_CREATE: 'resultat.create',
+  RESULTAT_UPDATE: 'resultat.update',
+  RESULTAT_DELETE: 'resultat.delete',
+  RESULTAT_PUBLISH: 'resultat.publish',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -47,6 +53,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     PERMISSIONS.CONTACT_VIEW,
     PERMISSIONS.CONTACT_MANAGE,
     PERMISSIONS.SETTINGS_ADMISSION,
+    PERMISSIONS.SETTINGS_NAVIGATION,
+    PERMISSIONS.RESULTAT_VIEW,
+    PERMISSIONS.RESULTAT_CREATE,
+    PERMISSIONS.RESULTAT_UPDATE,
+    PERMISSIONS.RESULTAT_DELETE,
+    PERMISSIONS.RESULTAT_PUBLISH,
   ],
   lecteur: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.CONTENT_VIEW],
 };

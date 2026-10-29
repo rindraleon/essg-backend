@@ -14,6 +14,7 @@ export const CACHE_RESOURCE = {
   ressourcesHumaines: 'ressources-humaines',
   settings: 'settings',
   dashboard: 'dashboard',
+  resultats: 'resultats',
   mentions: 'mentions',
   parcours: 'parcours',
 } as const;
