@@ -15,6 +15,7 @@ import { ActivityLogsModule } from '../activity-logs/activity-log.module';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { PasswordResetService } from './password-reset.service';
 import { PasswordController } from './password.controller';
+import { ACCESS_TOKEN_TTL } from '../sessions/sessions.constants';
 
 @Module({
   imports: [
@@ -27,7 +28,8 @@ import { PasswordController } from './password.controller';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const expiresIn = config.get<SignOptions['expiresIn']>('JWT_EXPIRATION') ?? '24h';
+        const expiresIn =
+          config.get<SignOptions['expiresIn']>('JWT_EXPIRATION') ?? ACCESS_TOKEN_TTL;
         return {
           secret: config.get<string>('JWT_SECRET', 'essg-default-secret-key-change-in-production'),
           signOptions: {

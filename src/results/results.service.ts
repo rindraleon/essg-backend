@@ -1314,9 +1314,15 @@ export class ResultsService {
 
   async listerIndividuels(
     publicationId: number,
-    query: { page?: number; limit?: number; q?: string; statutAcademique?: string },
+    query: {
+      page?: number;
+      limit?: number;
+      q?: string;
+      statutAcademique?: string;
+      classe?: string;
+    },
   ): Promise<PaginatedData<ResultatIndividuel>> {
-    const { page = 1, limit = 50, q, statutAcademique } = query;
+    const { page = 1, limit = 50, q, statutAcademique, classe } = query;
 
     const qb = this.individuelsRepository.createQueryBuilder('r');
     qb.andWhere('r.publicationId = :publicationId', { publicationId });
@@ -1332,7 +1338,18 @@ export class ResultsService {
     }
 
     if (statutAcademique) {
-      qb.andWhere('r.statutAcademique = :statutAcademique', { statutAcademique });
+      // Tolère les sentinelles front (`__all__`) et ignore les valeurs inconnues
+      // plutôt que de les envoyer à PostgreSQL (erreur d'enum → 500).
+      const statut = statutAcademique.trim().toLowerCase();
+      if ((Object.values(StatutAcademique) as string[]).includes(statut)) {
+        qb.andWhere('r.statutAcademique = :statutAcademique', {
+          statutAcademique: statut as StatutAcademique,
+        });
+      }
+    }
+
+    if (classe?.trim()) {
+      qb.andWhere('r.classe = :classe', { classe: classe.trim() });
     }
 
     qb.orderBy('r.matricule', 'ASC');
@@ -1348,7 +1365,13 @@ export class ResultsService {
    */
   async listerIndividuelsPublics(
     publicationId: number,
-    query: { page?: number; limit?: number; q?: string; statutAcademique?: string },
+    query: {
+      page?: number;
+      limit?: number;
+      q?: string;
+      statutAcademique?: string;
+      classe?: string;
+    },
   ): Promise<PaginatedData<Omit<ResultatIndividuel, 'codeConsultation'>>> {
     const publication = await this.publicationRepository.findOne({
       where: {
@@ -1373,6 +1396,45 @@ export class ResultsService {
       }),
       meta: result.meta,
     };
+  }
+
+  /**
+   * Liste les parcours/classes distincts des résultats individuels d’une
+   * publication, utilisés pour alimenter le filtre par parcours.
+   */
+  async listerClassesIndividuels(publicationId: number): Promise<string[]> {
+    const rows = await this.individuelsRepository
+      .createQueryBuilder('r')
+      .select('DISTINCT r.classe', 'classe')
+      .where('r.publicationId = :publicationId', { publicationId })
+      .andWhere('r.classe IS NOT NULL')
+      .andWhere("TRIM(r.classe) <> ''")
+      .orderBy('r.classe', 'ASC')
+      .getRawMany<{ classe: string }>();
+
+    return rows.map((row) => row.classe).filter(Boolean);
+  }
+
+  /**
+   * Liste les parcours/classes distincts d’une publication publique, utilisés
+   * pour alimenter le filtre de la liste publique des résultats individuels.
+   */
+  async listerClassesIndividuelsPublics(publicationId: number): Promise<string[]> {
+    const publication = await this.publicationRepository.findOne({
+      where: {
+        id: publicationId,
+        statutPublication: ResultatPublicationStatus.PUBLIE,
+        modeConsultation: ResultatConsultationMode.PUBLIC,
+      },
+      select: ['id'],
+    });
+    if (!publication) {
+      throw new NotFoundException(
+        'Les résultats individuels de cette publication ne sont pas accessibles publiquement.',
+      );
+    }
+
+    return this.listerClassesIndividuels(publicationId);
   }
 
   async consulterIndividuel(

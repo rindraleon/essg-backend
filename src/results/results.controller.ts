@@ -169,6 +169,22 @@ export class ResultatsController {
     return this.resultsService.findPublicOne(id);
   }
 
+  @Get('public/:id/individuels/classes')
+  @Public()
+  @UseGuards(AllowAllGuard)
+  @ApiOperation({
+    summary: 'Lister les parcours/classes des résultats individuels d’une publication publique',
+    description:
+      'Retourne les valeurs distinctes de la colonne parcours/classe pour alimenter le filtre public.',
+  })
+  @ApiParam({ name: 'id', example: 12 })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
+  @ApiStandardErrors({ auth: false, notFound: true })
+  @ApiMessage('Parcours/classes des résultats individuels publics récupérés')
+  async listerClassesIndividuelsPublics(@Param('id', ParseIntPipe) id: number) {
+    return this.resultsService.listerClassesIndividuelsPublics(id);
+  }
+
   @Get('public/:id/individuels')
   @Public()
   @UseGuards(AllowAllGuard)
@@ -183,7 +199,14 @@ export class ResultatsController {
   @ApiMessage('Résultats individuels publics récupérés')
   async listerIndividuelsPublics(
     @Param('id', ParseIntPipe) id: number,
-    @Query() query: { page?: number; limit?: number; q?: string; statutAcademique?: string },
+    @Query()
+    query: {
+      page?: number;
+      limit?: number;
+      q?: string;
+      statutAcademique?: string;
+      classe?: string;
+    },
   ) {
     return this.resultsService.listerIndividuelsPublics(id, query);
   }
@@ -480,6 +503,24 @@ export class ResultatsController {
     );
   }
 
+  @Get(':id/individuels/classes')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.RESULTAT_VIEW)
+  @ApiBearerAuth(API_BEARER_AUTH_NAME)
+  @ApiOperation({
+    summary: 'Lister les parcours/classes des résultats individuels d’une publication',
+    description:
+      'Retourne les valeurs distinctes de la colonne parcours/classe pour alimenter le filtre par parcours.',
+  })
+  @ApiParam({ name: 'id', example: 12 })
+  @ApiStandardResponse(undefined, { description: SWAGGER_OPERATION_SUCCESS })
+  @ApiStandardErrors({ auth: true, notFound: true })
+  @ApiMessage('Parcours/classes des résultats individuels récupérés')
+  async listerClassesIndividuels(@Param('id', ParseIntPipe) id: number) {
+    await this.resultsService.findOne(id);
+    return this.resultsService.listerClassesIndividuels(id);
+  }
+
   @Get(':id/individuels')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(PERMISSIONS.RESULTAT_VIEW)
@@ -494,7 +535,14 @@ export class ResultatsController {
   @ApiMessage('Résultats individuels récupérés')
   async listerIndividuels(
     @Param('id', ParseIntPipe) id: number,
-    @Query() query: { page?: number; limit?: number; q?: string; statutAcademique?: string },
+    @Query()
+    query: {
+      page?: number;
+      limit?: number;
+      q?: string;
+      statutAcademique?: string;
+      classe?: string;
+    },
   ) {
     await this.resultsService.findOne(id);
     return this.resultsService.listerIndividuels(id, query);
